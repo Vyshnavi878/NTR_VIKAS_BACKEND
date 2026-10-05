@@ -413,3 +413,237 @@ async def test_dismiss_single_and_multiple_notifications():
             headers={"Authorization": f"Bearer {cand['token']}"},
         )
         assert resp_all.json()["total"] == 2
+
+
+# ── Delete Functionality Tests ──────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_delete_unauthenticated_returns_401():
+    """TEST 7: No access token returns 401 Unauthorized for both single and bulk delete."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Single delete without token
+        resp_single = await client.delete("/api/v1/candidate/notifications/test-notif-123")
+        assert resp_single.status_code == 401
+
+        # Bulk delete without token
+        resp_bulk = await client.request(
+            "DELETE",
+            "/api/v1/candidate/notifications/bulk",
+            json={"notification_ids": ["test-notif-123"]},
+        )
+        assert resp_bulk.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_delete_invalid_or_expired_token_returns_401():
+    """TEST 8: Invalid or expired access token returns 401 Unauthorized."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = {"Authorization": "Bearer invalid.expired.token"}
+        resp = await client.delete(
+            "/api/v1/candidate/notifications/test-notif-123",
+            headers=headers,
+        )
+        assert resp.status_code == 401
+
+        resp_bulk = await client.request(
+            "DELETE",
+            "/api/v1/candidate/notifications/bulk",
+            headers=headers,
+            json={"notification_ids": ["test-notif-123"]},
+        )
+        assert resp_bulk.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_candidate_deletes_own_notification():
+    """TEST 1: Authenticated candidate deletes own notification. Returns 200 and permanently removes from MySQL."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        cand = await _register_candidate(client)
+
+        async with AsyncSessionLocal() as session:
+            notif = await NotificationService.create_notification(
+                db=session,
+                candidate_id=cand["candidate_id"],
+                category="support",
+                title="Single Delete Test",
+                message="Notification to be deleted permanently",
+            )
+            notif_id = notif.id
+
+        # Verify it exists in DB
+        async with AsyncSessionLocal() as session:
+            q = select(Notification).where(Notification.id == notif_id)
+            res = await session.execute(q)
+            assert res.scalar_one_or_none() is not None
+
+        # Execute DELETE
+        resp = await client.delete(
+            f"/api/v1/candidate/notifications/{notif_id}",
+            headers={"Authorization": f"Bearer {cand['token']}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["message"] == "Notification deleted successfully."
+
+        # Verify it is completely removed from MySQL
+        async with AsyncSessionLocal() as session:
+            q = select(Notification).where(Notification.id == notif_id)
+            res = await session.execute(q)
+            assert res.scalar_one_or_none() is None
+
+        # Query notifications list - must not appear even with include_dismissed=true
+        resp_list = await client.get(
+            "/api/v1/candidate/notifications?include_dismissed=true",
+            headers={"Authorization": f"Bearer {cand['token']}"},
+        )
+        assert resp_list.status_code == 200
+        ids = [item["id"] for item in resp_list.json()["items"]]
+        assert notif_id not in ids
+
+
+@pytest.mark.asyncio
+async def test_candidate_cannot_delete_other_candidate_notification():
+    """TEST 2: Candidate A cannot delete Candidate B's notification. Returns 404 and record remains in MySQL."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        cand_a = await _register_candidate(client)
+        cand_b = await _register_candidate(client)
+
+        async with AsyncSessionLocal() as session:
+            notif_b = await NotificationService.create_notification(
+                db=session,
+                candidate_id=cand_b["candidate_id"],
+                category="interview",
+                title="Candidate B Notification",
+                message="Candidate B secret message",
+            )
+            notif_b_id = notif_b.id
+
+        # Candidate A attempts to delete Candidate B's notification
+        resp = await client.delete(
+            f"/api/v1/candidate/notifications/{notif_b_id}",
+            headers={"Authorization": f"Bearer {cand_a['token']}"},
+        )
+        assert resp.status_code == 404
+
+        # Verify notification still exists in MySQL intact
+        async with AsyncSessionLocal() as session:
+            q = select(Notification).where(Notification.id == notif_b_id)
+            res = await session.execute(q)
+            row = res.scalar_one_or_none()
+            assert row is not None
+            assert row.candidate_id == cand_b["candidate_id"]
+
+
+@pytest.mark.asyncio
+async def test_bulk_delete_own_notifications():
+    """TEST 3: Authenticated candidate bulk deletes 3 own notifications. Returns 200 with deleted_count=3 and removes from MySQL."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        cand = await _register_candidate(client)
+
+        ids = []
+        async with AsyncSessionLocal() as session:
+            for i in range(3):
+                n = await NotificationService.create_notification(
+                    db=session,
+                    candidate_id=cand["candidate_id"],
+                    category="application",
+                    title=f"Bulk Delete Test {i+1}",
+                    message=f"Message {i+1}",
+                )
+                ids.append(n.id)
+
+        # Call bulk delete API
+        resp = await client.request(
+            "DELETE",
+            "/api/v1/candidate/notifications/bulk",
+            headers={"Authorization": f"Bearer {cand['token']}"},
+            json={"notification_ids": ids},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["message"] == "Notifications deleted successfully."
+        assert data["deleted_count"] == 3
+
+        # Verify all 3 are deleted from MySQL
+        async with AsyncSessionLocal() as session:
+            q = select(Notification).where(Notification.id.in_(ids))
+            res = await session.execute(q)
+            assert len(res.scalars().all()) == 0
+
+
+@pytest.mark.asyncio
+async def test_bulk_delete_with_foreign_notification_rejected():
+    """TEST 4: Bulk delete containing another candidate's notification is rejected with 404; unauthorized notification is NOT deleted."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        cand_a = await _register_candidate(client)
+        cand_b = await _register_candidate(client)
+
+        async with AsyncSessionLocal() as session:
+            n_a = await NotificationService.create_notification(
+                db=session,
+                candidate_id=cand_a["candidate_id"],
+                category="support",
+                title="A Own Notification",
+                message="A's message",
+            )
+            n_b = await NotificationService.create_notification(
+                db=session,
+                candidate_id=cand_b["candidate_id"],
+                category="offer",
+                title="B Notification",
+                message="B's message",
+            )
+            id_a = n_a.id
+            id_b = n_b.id
+
+        # Candidate A attempts bulk delete including Candidate B's notification
+        resp = await client.request(
+            "DELETE",
+            "/api/v1/candidate/notifications/bulk",
+            headers={"Authorization": f"Bearer {cand_a['token']}"},
+            json={"notification_ids": [id_a, id_b]},
+        )
+        assert resp.status_code == 404
+
+        # Verify Candidate B's notification is definitely untouched
+        async with AsyncSessionLocal() as session:
+            q_b = select(Notification).where(Notification.id == id_b)
+            res_b = await session.execute(q_b)
+            assert res_b.scalar_one_or_none() is not None
+
+
+@pytest.mark.asyncio
+async def test_bulk_delete_empty_list_returns_422():
+    """TEST 5: Empty bulk list returns 422 validation error."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        cand = await _register_candidate(client)
+
+        resp = await client.request(
+            "DELETE",
+            "/api/v1/candidate/notifications/bulk",
+            headers={"Authorization": f"Bearer {cand['token']}"},
+            json={"notification_ids": []},
+        )
+        assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_delete_non_existent_notification_returns_404():
+    """TEST 6: Invalid/non-existent notification ID returns 404."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        cand = await _register_candidate(client)
+
+        resp = await client.delete(
+            "/api/v1/candidate/notifications/non_existent_id_99999",
+            headers={"Authorization": f"Bearer {cand['token']}"},
+        )
+        assert resp.status_code == 404
+

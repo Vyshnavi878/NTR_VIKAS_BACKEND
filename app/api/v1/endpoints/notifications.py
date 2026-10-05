@@ -11,6 +11,9 @@ from app.schemas.notification import (
     MarkNotificationsRequest,
     DismissNotificationsRequest,
     NotificationActionResponse,
+    BulkNotificationDeleteRequest,
+    NotificationDeleteResponse,
+    BulkNotificationDeleteResponse,
 )
 from app.services.notification_service import NotificationService
 
@@ -136,3 +139,48 @@ async def dismiss(
     return await NotificationService.dismiss(
         db=db, current_user=current_user, notification_id=notification_id
     )
+
+
+@router.delete(
+    "/bulk",
+    response_model=BulkNotificationDeleteResponse,
+    summary="Bulk delete notifications",
+    description="Permanently delete multiple notifications belonging to the authenticated candidate in a single operation.",
+)
+async def delete_notifications_bulk(
+    payload: BulkNotificationDeleteRequest,
+    current_user: User = Depends(get_current_candidate),
+    db: AsyncSession = Depends(get_database),
+) -> BulkNotificationDeleteResponse:
+    """
+    DELETE /api/v1/candidate/notifications/bulk
+    Accepts: { "notification_ids": [...] }
+    Requires Bearer JWT token with CANDIDATE role.
+    Permanently deletes all specified notifications belonging to this candidate.
+    """
+    return await NotificationService.delete_notifications_bulk(
+        db=db, current_user=current_user, payload=payload
+    )
+
+
+@router.delete(
+    "/{notification_id}",
+    response_model=NotificationDeleteResponse,
+    summary="Delete single notification",
+    description="Permanently delete a single notification belonging to the authenticated candidate.",
+)
+async def delete_notification(
+    notification_id: str,
+    current_user: User = Depends(get_current_candidate),
+    db: AsyncSession = Depends(get_database),
+) -> NotificationDeleteResponse:
+    """
+    DELETE /api/v1/candidate/notifications/{notification_id}
+    Requires Bearer JWT token with CANDIDATE role.
+    Permanently deletes the specified notification belonging to this candidate.
+    """
+    return await NotificationService.delete_notification(
+        db=db, current_user=current_user, notification_id=notification_id
+    )
+
+

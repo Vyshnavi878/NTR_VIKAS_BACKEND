@@ -1,6 +1,6 @@
 from typing import AsyncGenerator, Optional
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -9,10 +9,15 @@ from app.database.session import get_db
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/token",
+# HTTPBearer provides a direct "Bearer Token" input in Swagger UI (Authorize dialog)
+# without asking for username/password or requiring OAuth2 form flows.
+bearer_scheme = HTTPBearer(
+    bearerFormat="JWT",
+    scheme_name="Bearer",
+    description="Enter your JWT Access Token directly (obtained from POST /api/v1/auth/login).",
     auto_error=False,
 )
+oauth2_scheme = bearer_scheme  # backward compatibility alias
 
 
 async def get_database() -> AsyncGenerator[AsyncSession, None]:
@@ -22,10 +27,17 @@ async def get_database() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_current_user(
-    token: Optional[str] = Depends(oauth2_scheme),
+    auth: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_database),
 ) -> User:
     """Validate JWT access token and return authenticated user model."""
+    token: Optional[str] = None
+    if auth and auth.credentials:
+        token = auth.credentials.strip()
+        # Handle if user accidentally pasted 'Bearer <token>' in the Swagger input box
+        if token.lower().startswith("bearer "):
+            token = token[7:].strip()
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -102,3 +114,23 @@ async def get_current_admin(
             detail="Access denied. Administrator privileges required.",
         )
     return current_user
+
+
+async def get_optional_user(
+    auth: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_database),
+) -> Optional[User]:
+    """Return authenticated User if valid Bearer token provided, else None."""
+    if not auth or not auth.credentials:
+        return None
+    token = auth.credentials.strip()
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "access":
+        return None
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+    return await UserRepository.get_by_id(db, user_id)
+

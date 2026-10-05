@@ -15,6 +15,11 @@ from app.models.candidate_profile_details import (
 )
 from app.models.candidate_settings import CandidateSettings
 from app.models.notification import Notification
+from app.models.job import Job, JobSkill
+from app.models.interview import Interview
+from app.models.recruiter_support import RecruiterSupportRequest
+from app.models.job_mela import JobMela, JobMelaCompanyParticipation
+from app.models.internship import Internship, InternshipApplication, AuditLog
 
 __all__ = [
     "User",
@@ -33,4 +38,14 @@ __all__ = [
     "CandidateResume",
     "CandidateSettings",
     "Notification",
+    "Job",
+    "JobSkill",
+    "Interview",
+    "RecruiterSupportRequest",
+    "JobMela",
+    "JobMelaCompanyParticipation",
+    "Internship",
+    "InternshipApplication",
+    "AuditLog",
 ]
+

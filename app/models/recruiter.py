@@ -53,5 +53,10 @@ class RecruiterProfile(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    # Relationship to User
+    # Relationships
     user = relationship("User", back_populates="recruiter_profile")
+    jobs = relationship("Job", back_populates="recruiter", cascade="all, delete-orphan")
+    interviews = relationship("Interview", back_populates="recruiter", cascade="all, delete-orphan")
+    applications = relationship("CandidateApplication", back_populates="recruiter")
+    support_requests = relationship("RecruiterSupportRequest", back_populates="recruiter", cascade="all, delete-orphan")
+

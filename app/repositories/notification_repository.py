@@ -2,7 +2,7 @@ import uuid
 from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func, and_, or_
+from sqlalchemy import select, update, delete, func, and_, or_
 
 from app.models.notification import Notification
 
@@ -223,3 +223,71 @@ class NotificationRepository:
         result = await db.execute(stmt)
         await db.commit()
         return result.rowcount
+
+    @staticmethod
+    async def delete_notification(
+        db: AsyncSession,
+        notification_id: str,
+        candidate_id: str,
+    ) -> bool:
+        """
+        Permanently delete a single notification from MySQL.
+        Strictly enforces candidate ownership.
+        Returns True if deleted, False if not found or unauthorized.
+        """
+        stmt = (
+            delete(Notification)
+            .where(
+                and_(
+                    Notification.id == notification_id,
+                    Notification.candidate_id == candidate_id,
+                )
+            )
+        )
+        result = await db.execute(stmt)
+        await db.commit()
+        return result.rowcount > 0
+
+    @staticmethod
+    async def get_owned_notification_ids(
+        db: AsyncSession,
+        notification_ids: List[str],
+        candidate_id: str,
+    ) -> List[str]:
+        """Fetch IDs from the requested list that actually belong to the candidate."""
+        if not notification_ids:
+            return []
+        stmt = select(Notification.id).where(
+            and_(
+                Notification.id.in_(notification_ids),
+                Notification.candidate_id == candidate_id,
+            )
+        )
+        res = await db.execute(stmt)
+        return [row[0] for row in res.all()]
+
+    @staticmethod
+    async def delete_notifications(
+        db: AsyncSession,
+        notification_ids: List[str],
+        candidate_id: str,
+    ) -> int:
+        """
+        Permanently delete multiple notifications belonging to candidate in one query.
+        Returns count of deleted rows.
+        """
+        if not notification_ids:
+            return 0
+        stmt = (
+            delete(Notification)
+            .where(
+                and_(
+                    Notification.id.in_(notification_ids),
+                    Notification.candidate_id == candidate_id,
+                )
+            )
+        )
+        result = await db.execute(stmt)
+        await db.commit()
+        return result.rowcount
+

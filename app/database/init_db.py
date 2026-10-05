@@ -18,6 +18,9 @@ from app.models.candidate_profile_details import (
 from app.models.saved_job import SavedJob
 from app.models.application import CandidateApplication, ApplicationTimelineEvent
 from app.models.notification import Notification
+from app.models.recruiter import RecruiterProfile
+from app.models.job import Job
+from app.models.interview import Interview
 from app.core.security import hash_password
 
 DEMO_USERS = [
@@ -819,6 +822,297 @@ async def seed_candidate_notifications() -> None:
         await session.commit()
 
 
+
+async def seed_recruiter_profile_and_dashboard_data() -> None:
+    """Seed default RecruiterProfile, Jobs, Applications, and Interviews for recruiter1 (Arjun Reddy)."""
+    async with AsyncSessionLocal() as session:
+        u_stmt = select(User).where(User.email == "recruiter1@ntrvikasa.com")
+        u_res = await session.execute(u_stmt)
+        recruiter_user = u_res.scalar_one_or_none()
+        if not recruiter_user:
+            return
+
+        # 1. RecruiterProfile
+        rp_stmt = select(RecruiterProfile).where(RecruiterProfile.user_id == recruiter_user.id)
+        rp_res = await session.execute(rp_stmt)
+        rec_profile = rp_res.scalar_one_or_none()
+        if not rec_profile:
+            rec_profile = RecruiterProfile(
+                id=str(uuid.uuid4()),
+                user_id=recruiter_user.id,
+                recruiter_name="Arjun Reddy",
+                designation="Director of Talent Acquisition",
+                work_email="recruiter1@ntrvikasa.com",
+                mobile_phone="+91 98765 00112",
+                company_name="ABC Technologies Pvt Ltd",
+                company_website="https://abctechnologies.example.com",
+                corporate_email="careers@abctechnologies.example.com",
+                company_phone="+91 80 4920 1000",
+                primary_industry="Information Technology",
+                company_size="1000-5000 employees",
+                headquarters_city_state="Bengaluru, Karnataka",
+                registered_office_address="Block B, RMZ Ecospace, Outer Ring Road, Bellandur, Bengaluru 560103",
+                company_description="ABC Technologies is a premier enterprise IT software solutions provider powering digital platforms across Fintech, E-Commerce, and Supply Chain.",
+                incorporation_document_path="/docs/incorporation/abc_tech_inc.pdf",
+                recruiter_authorization_document_path="/docs/auth/arjun_auth.pdf",
+                company_logo_path="/logos/abc_tech.png",
+                status="APPROVED",
+            )
+            session.add(rec_profile)
+            await session.commit()
+            await session.refresh(rec_profile)
+
+        recruiter_id = rec_profile.id
+
+        # 2. Jobs
+        job_cnt_stmt = select(func.count(Job.id)).where(Job.recruiter_id == recruiter_id)
+        job_cnt_res = await session.execute(job_cnt_stmt)
+        if job_cnt_res.scalar_one() == 0:
+            demo_jobs = [
+                {
+                    "job_id": "job-101",
+                    "title": "Senior Frontend Engineer (React / TypeScript)",
+                    "department": "Core Engineering",
+                    "job_type": "Full-time",
+                    "work_mode": "Hybrid",
+                    "location": "Bengaluru, Karnataka",
+                    "experience": "3-5 years",
+                    "salary": "₹16,00,000 - ₹24,00,000 / year",
+                    "openings": 3,
+                    "status": "PUBLISHED",
+                    "description": "Architect and implement performant React UI components using modern state architectures.",
+                    "skills": "React.js, TypeScript, Next.js, Redux Toolkit, Tailwind CSS",
+                    "deadline": "2026-11-30",
+                },
+                {
+                    "job_id": "job-102",
+                    "title": "Senior Python & Cloud Backend Developer",
+                    "department": "Platform Core",
+                    "job_type": "Full-time",
+                    "work_mode": "Hybrid",
+                    "location": "Hyderabad, Telangana",
+                    "experience": "3-6 years",
+                    "salary": "₹14,00,000 - ₹22,00,000 / year",
+                    "openings": 2,
+                    "status": "PUBLISHED",
+                    "description": "Design and scale asynchronous microservices, REST APIs, and event pipelines using Python and FastAPI.",
+                    "skills": "Python, FastAPI, PostgreSQL, Docker, AWS, Redis",
+                    "deadline": "2026-11-25",
+                },
+                {
+                    "job_id": "job-103",
+                    "title": "DevOps & Cloud Infrastructure Specialist",
+                    "department": "Infra & SecOps",
+                    "job_type": "Full-time",
+                    "work_mode": "Remote",
+                    "location": "Remote (India)",
+                    "experience": "4-7 years",
+                    "salary": "₹20,00,000 - ₹30,00,000 / year",
+                    "openings": 2,
+                    "status": "PUBLISHED",
+                    "description": "Lead automated multi-cloud provisioning, Kubernetes cluster management, and CI/CD automation.",
+                    "skills": "Kubernetes, AWS, Terraform, Docker, CI/CD",
+                    "deadline": "2026-12-10",
+                },
+                {
+                    "job_id": "job-104",
+                    "title": "AI / ML Engineer — Computer Vision & NLP",
+                    "department": "AI Innovation Lab",
+                    "job_type": "Full-time",
+                    "work_mode": "Hybrid",
+                    "location": "Bengaluru, Karnataka",
+                    "experience": "2-4 years",
+                    "salary": "₹18,00,000 - ₹26,00,000 / year",
+                    "openings": 2,
+                    "status": "PENDING",
+                    "description": "Build predictive AI models, multimodal pipelines, and production LLM integrations.",
+                    "skills": "PyTorch, Python, Machine Learning, NLP, LLMs",
+                    "deadline": "2026-12-15",
+                },
+            ]
+            for jd in demo_jobs:
+                job_obj = Job(
+                    id=str(uuid.uuid4()),
+                    job_id=jd["job_id"],
+                    recruiter_id=recruiter_id,
+                    company_name=rec_profile.company_name,
+                    title=jd["title"],
+                    department=jd["department"],
+                    job_type=jd["job_type"],
+                    work_mode=jd["work_mode"],
+                    location=jd["location"],
+                    experience=jd["experience"],
+                    salary=jd["salary"],
+                    openings=jd["openings"],
+                    status=jd["status"],
+                    description=jd["description"],
+                    skills=jd["skills"],
+                    deadline=jd["deadline"],
+                )
+                session.add(job_obj)
+            await session.commit()
+
+        # 3. Applications
+        # Find candidate 1 profile if available
+        cp_stmt = select(CandidateProfile).limit(1)
+        cp_res = await session.execute(cp_stmt)
+        cand1_profile = cp_res.scalar_one_or_none()
+        cand1_id = cand1_profile.id if cand1_profile else str(uuid.uuid4())
+
+        app_cnt_stmt = select(func.count(CandidateApplication.id)).where(
+            CandidateApplication.recruiter_id == recruiter_id
+        )
+        app_cnt_res = await session.execute(app_cnt_stmt)
+        if app_cnt_res.scalar_one() == 0:
+            demo_apps = [
+                {
+                    "app_num": "NTR-APP-501",
+                    "cand_id": cand1_id,
+                    "job_id": "job-101",
+                    "job_title": "Senior Frontend Engineer (React / TypeScript)",
+                    "exp": "4.2 Years",
+                    "match": 95,
+                    "status": "SHORTLISTED",
+                    "applied_date": "02 Sept 2026",
+                },
+                {
+                    "app_num": "NTR-APP-502",
+                    "cand_id": cand1_id,
+                    "job_id": "job-102",
+                    "job_title": "Senior Python & Cloud Backend Developer",
+                    "exp": "3.5 Years",
+                    "match": 92,
+                    "status": "INTERVIEW",
+                    "applied_date": "01 Sept 2026",
+                },
+                {
+                    "app_num": "NTR-APP-503",
+                    "cand_id": cand1_id,
+                    "job_id": "job-103",
+                    "job_title": "DevOps & Cloud Infrastructure Specialist",
+                    "exp": "6.0 Years",
+                    "match": 94,
+                    "status": "SHORTLISTED",
+                    "applied_date": "28 Aug 2026",
+                },
+                {
+                    "app_num": "NTR-APP-504",
+                    "cand_id": cand1_id,
+                    "job_id": "job-101",
+                    "job_title": "Senior Frontend Engineer (React / TypeScript)",
+                    "exp": "4.0 Years",
+                    "match": 89,
+                    "status": "UNDER_REVIEW",
+                    "applied_date": "20 Aug 2026",
+                },
+                {
+                    "app_num": "NTR-APP-505",
+                    "cand_id": cand1_id,
+                    "job_id": "job-101",
+                    "job_title": "Senior Frontend Engineer (React / TypeScript)",
+                    "exp": "3.0 Years",
+                    "match": 82,
+                    "status": "APPLIED",
+                    "applied_date": "01 Sept 2026",
+                },
+            ]
+            for da in demo_apps:
+                app_obj = CandidateApplication(
+                    id=str(uuid.uuid4()),
+                    application_number=da["app_num"],
+                    candidate_profile_id=da["cand_id"],
+                    recruiter_id=recruiter_id,
+                    job_id=da["job_id"],
+                    job_title=da["job_title"],
+                    company_name=rec_profile.company_name,
+                    location="Bengaluru, Karnataka",
+                    salary="₹16 - ₹24 LPA",
+                    employment_type="Full-time",
+                    work_mode="Hybrid",
+                    application_type="Direct Job Application",
+                    match_percentage=da["match"],
+                    experience=da["exp"],
+                    status=da["status"],
+                    applied_date=da["applied_date"],
+                    applied_at=datetime.now(timezone.utc),
+                )
+                session.add(app_obj)
+            await session.commit()
+
+        # 4. Interviews
+        int_cnt_stmt = select(func.count(Interview.id)).where(Interview.recruiter_id == recruiter_id)
+        int_cnt_res = await session.execute(int_cnt_stmt)
+        if int_cnt_res.scalar_one() == 0:
+            demo_interviews = [
+                {
+                    "int_num": "INT-001",
+                    "cand_name": "Priya Sharma",
+                    "cand_email": "priya.sharma@example.com",
+                    "job_id": "job-101",
+                    "job_title": "Senior Frontend Engineer (React / TypeScript)",
+                    "round": "Technical Round 1",
+                    "type": "Online (Google Meet)",
+                    "date": "2026-10-10",
+                    "time": "11:00 AM - 12:00 PM IST",
+                    "platform": "Google Meet",
+                    "link": "https://meet.google.com/abc-priya-fe",
+                    "interviewer": "Arjun Reddy & Lead Architect",
+                    "status": "SCHEDULED",
+                },
+                {
+                    "int_num": "INT-002",
+                    "cand_name": "Rahul Kumar",
+                    "cand_email": "rahul.kumar@example.com",
+                    "job_id": "job-102",
+                    "job_title": "Senior Python & Cloud Backend Developer",
+                    "round": "System Design & Architecture",
+                    "type": "Online (Google Meet)",
+                    "date": "2026-10-12",
+                    "time": "02:00 PM - 03:00 PM IST",
+                    "platform": "Google Meet",
+                    "link": "https://meet.google.com/abc-rahul-py",
+                    "interviewer": "Arjun Reddy & VP Engineering",
+                    "status": "SCHEDULED",
+                },
+                {
+                    "int_num": "INT-003",
+                    "cand_name": "Manish Varma",
+                    "cand_email": "manish.varma@example.com",
+                    "job_id": "job-109",
+                    "job_title": "Data Engineer — Spark & Databricks",
+                    "round": "Live Coding & Algorithms",
+                    "type": "Online (Google Meet)",
+                    "date": "2026-10-14",
+                    "time": "04:00 PM - 05:00 PM IST",
+                    "platform": "Google Meet",
+                    "link": "https://meet.google.com/abc-manish-de",
+                    "interviewer": "Arjun Reddy & Data Platform Lead",
+                    "status": "SCHEDULED",
+                },
+            ]
+            for di in demo_interviews:
+                int_obj = Interview(
+                    id=str(uuid.uuid4()),
+                    interview_number=di["int_num"],
+                    recruiter_id=recruiter_id,
+                    candidate_profile_id=cand1_id,
+                    job_id=di["job_id"],
+                    candidate_name=di["cand_name"],
+                    candidate_email=di["cand_email"],
+                    job_title=di["job_title"],
+                    round_name=di["round"],
+                    interview_type=di["type"],
+                    date=di["date"],
+                    time=di["time"],
+                    meeting_platform=di["platform"],
+                    meeting_link=di["link"],
+                    interviewer=di["interviewer"],
+                    status=di["status"],
+                )
+                session.add(int_obj)
+            await session.commit()
+
+
 async def init_db() -> None:
     """
     Database startup check and initial seed.
@@ -828,5 +1122,7 @@ async def init_db() -> None:
     await seed_candidate_saved_jobs()
     await seed_candidate_applications()
     await seed_candidate_notifications()
+    await seed_recruiter_profile_and_dashboard_data()
+
 
 

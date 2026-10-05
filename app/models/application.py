@@ -24,6 +24,12 @@ class CandidateApplication(Base):
     employment_type = Column(String(100), default="Full-time", nullable=False)
     work_mode = Column(String(50), default="On-site", nullable=False)
     application_type = Column(String(100), default="Direct Job Application", nullable=False)
+    source = Column(
+        String(100),
+        default="NTR Vikasa Job Portal Direct",
+        nullable=False,
+        index=True,
+    )
     
     # Optional Job Mela fields
     mela_id = Column(String(50), nullable=True)
@@ -32,6 +38,16 @@ class CandidateApplication(Base):
     company_sequence = Column(String(50), nullable=True)
     application_sequence = Column(String(50), nullable=True)
     
+    # Recruiter association & Candidate Evaluation
+    recruiter_id = Column(
+        String(50),
+        ForeignKey("recruiter_profiles.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    match_percentage = Column(Integer, default=85, nullable=True)
+    experience = Column(String(100), nullable=True)
+
     # Status
     status = Column(String(50), default="APPLIED", nullable=False, index=True)
     applied_date = Column(String(50), nullable=True)
@@ -52,6 +68,8 @@ class CandidateApplication(Base):
 
     # Relationships
     candidate_profile = relationship("CandidateProfile", back_populates="applications")
+    recruiter = relationship("RecruiterProfile", back_populates="applications")
+    interviews = relationship("Interview", back_populates="application")
     timeline_events = relationship(
         "ApplicationTimelineEvent",
         back_populates="application",

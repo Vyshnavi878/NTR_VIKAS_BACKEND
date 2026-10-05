@@ -73,8 +73,8 @@ async def test_oauth2_token_endpoint_invalid_credentials():
 
 
 @pytest.mark.asyncio
-async def test_swagger_openapi_oauth2_security_scheme():
-    """OpenAPI schema defines OAuth2PasswordBearer security scheme pointing to /api/v1/auth/token."""
+async def test_swagger_openapi_bearer_security_scheme():
+    """OpenAPI schema defines direct HTTP Bearer security scheme for Swagger UI Authorization."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/openapi.json")
@@ -82,11 +82,12 @@ async def test_swagger_openapi_oauth2_security_scheme():
         schema = resp.json()
 
         schemes = schema.get("components", {}).get("securitySchemes", {})
-        assert "OAuth2PasswordBearer" in schemes, "OAuth2PasswordBearer missing from OpenAPI security schemes"
-        oauth_def = schemes["OAuth2PasswordBearer"]
-        assert oauth_def["type"] == "oauth2"
-        password_flow = oauth_def.get("flows", {}).get("password", {})
-        assert password_flow.get("tokenUrl") == "/api/v1/auth/token"
+        assert "Bearer" in schemes, "Bearer scheme missing from OpenAPI security schemes"
+        bearer_def = schemes["Bearer"]
+        assert bearer_def["type"] == "http"
+        assert bearer_def["scheme"] == "bearer"
+        assert bearer_def["bearerFormat"] == "JWT"
+
 
 
 @pytest.mark.asyncio

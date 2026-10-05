@@ -119,3 +119,9 @@ class CandidateProfile(Base):
         cascade="all, delete-orphan",
         order_by="Notification.created_at.desc()",
     )
+    interviews = relationship(
+        "Interview",
+        back_populates="candidate",
+        cascade="all, delete-orphan",
+        order_by="Interview.scheduled_at.desc()",
+    )

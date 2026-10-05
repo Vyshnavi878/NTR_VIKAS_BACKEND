@@ -14,6 +14,9 @@ from app.schemas.notification import (
     MarkNotificationsRequest,
     DismissNotificationsRequest,
     NotificationActionResponse,
+    BulkNotificationDeleteRequest,
+    NotificationDeleteResponse,
+    BulkNotificationDeleteResponse,
 )
 
 
@@ -183,6 +186,82 @@ class NotificationService:
             message="Notifications dismissed.",
             updated_count=count,
         )
+
+    @classmethod
+    async def delete_notification(
+        cls,
+        db: AsyncSession,
+        current_user: User,
+        notification_id: str,
+    ) -> NotificationDeleteResponse:
+        """
+        Permanently delete a single notification.
+        Enforces candidate authentication and resource ownership.
+        """
+        profile = await cls.get_candidate_profile(db, current_user.id)
+        deleted = await NotificationRepository.delete_notification(
+            db=db,
+            notification_id=str(notification_id).strip(),
+            candidate_id=profile.id,
+        )
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found.",
+            )
+        return NotificationDeleteResponse(message="Notification deleted successfully.")
+
+    @classmethod
+    async def delete_notifications_bulk(
+        cls,
+        db: AsyncSession,
+        current_user: User,
+        payload: BulkNotificationDeleteRequest,
+    ) -> BulkNotificationDeleteResponse:
+        """
+        Permanently delete multiple notifications in one operation.
+        Verifies all IDs belong to the authenticated candidate.
+        If foreign or non-existent IDs are included, safely rejects.
+        """
+        profile = await cls.get_candidate_profile(db, current_user.id)
+        requested_ids = [str(i).strip() for i in payload.notification_ids if str(i).strip()]
+
+        if not requested_ids:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No notification IDs provided.",
+            )
+
+        owned_ids = await NotificationRepository.get_owned_notification_ids(
+            db=db,
+            notification_ids=requested_ids,
+            candidate_id=profile.id,
+        )
+
+        if not owned_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No matching notifications found to delete.",
+            )
+
+        # Enforce that all requested IDs belong to the candidate
+        if len(owned_ids) != len(requested_ids):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="One or more notifications not found.",
+            )
+
+        deleted_count = await NotificationRepository.delete_notifications(
+            db=db,
+            notification_ids=owned_ids,
+            candidate_id=profile.id,
+        )
+
+        return BulkNotificationDeleteResponse(
+            message="Notifications deleted successfully.",
+            deleted_count=deleted_count,
+        )
+
 
     @staticmethod
     async def create_notification(

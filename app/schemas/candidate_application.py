@@ -62,6 +62,8 @@ class CandidateApplicationItem(BaseModel):
     coverLetter: Optional[str] = None
     additional_info: Optional[str] = None
     additionalInfo: Optional[str] = None
+    match_percentage: Optional[int] = None
+    matchScore: Optional[int] = None
     timeline: List[TimelineEventItem] = Field(default_factory=list)
 
 

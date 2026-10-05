@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from typing import List, Optional
-from pydantic import BaseModel, ConfigDict, computed_field
+from typing import List, Optional, Union
+from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator
 
 
 class NotificationItem(BaseModel):
@@ -71,3 +71,33 @@ class NotificationActionResponse(BaseModel):
     message: str
     updated_count: Optional[int] = None
     notification: Optional[NotificationItem] = None
+
+
+class BulkNotificationDeleteRequest(BaseModel):
+    notification_ids: List[Union[str, int]] = Field(..., min_length=1, description="List of notification IDs to delete")
+
+    @field_validator("notification_ids")
+    @classmethod
+    def validate_ids(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("notification_ids must contain at least 1 ID")
+        cleaned = []
+        seen = set()
+        for item in v:
+            val = str(item).strip()
+            if val and val not in seen:
+                seen.add(val)
+                cleaned.append(val)
+        if not cleaned:
+            raise ValueError("notification_ids must contain at least 1 valid ID")
+        return cleaned
+
+
+class NotificationDeleteResponse(BaseModel):
+    message: str = "Notification deleted successfully."
+
+
+class BulkNotificationDeleteResponse(BaseModel):
+    message: str = "Notifications deleted successfully."
+    deleted_count: int
+

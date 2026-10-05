@@ -125,6 +125,8 @@ def _serialize_application(app: CandidateApplication) -> CandidateApplicationIte
         coverLetter=app.cover_letter,
         additional_info=app.additional_info,
         additionalInfo=app.additional_info,
+        match_percentage=app.match_percentage,
+        matchScore=app.match_percentage,
         timeline=timeline_items,
     )
 
@@ -267,6 +269,39 @@ class CandidateApplicationService:
                 detail="You have already applied for this job.",
             )
 
+        # Check target job if applicable (prevent applying to closed/unpublished jobs)
+        from sqlalchemy import select
+        from app.models.candidate_profile_details import CandidateSkill
+        from app.repositories.job_repository import JobRepository
+
+        target_job = await JobRepository.get_job_by_id(db, job_id_str)
+        if target_job:
+            if target_job.status == "CLOSED":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This job posting is closed and no longer accepting applications.",
+                )
+            if target_job.status != "PUBLISHED":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This job posting is not currently accepting applications.",
+                )
+
+        # Match score calculation based on candidate skills vs required job skills
+        match_score = 85
+        if target_job:
+            cand_skills_stmt = select(CandidateSkill.skill_name).where(CandidateSkill.candidate_profile_id == profile.id)
+            cand_skills_res = await db.execute(cand_skills_stmt)
+            cand_skills = {row[0].lower().strip() for row in cand_skills_res.all()}
+
+            job_skills = {s.skill_name.lower().strip() for s in target_job.job_skills}
+            if not job_skills and target_job.skills:
+                job_skills = {s.strip().lower() for s in target_job.skills.split(",") if s.strip()}
+
+            if job_skills and cand_skills:
+                common = cand_skills & job_skills
+                match_score = max(50, min(100, int((len(common) / len(job_skills)) * 100)))
+
         is_mela = bool(data.mela_id or (data.application_type and "Mela" in data.application_type))
         app_number = await CandidateApplicationRepository.generate_unique_application_number(
             db, is_mela=is_mela
@@ -281,15 +316,18 @@ class CandidateApplicationService:
             application_number=app_number,
             candidate_profile_id=profile.id,
             job_id=job_id_str,
-            job_title=data.job_title or f"Job #{job_id_str}",
-            company_name=data.company_name or "Partner Employer",
-            location=data.location or profile.location or "Visakhapatnam, Andhra Pradesh",
-            salary=data.salary or "As per industry standards",
-            employment_type=data.employment_type or "Full-time",
-            work_mode=data.work_mode or "On-site",
+            job_title=target_job.title if target_job else (data.job_title or f"Job #{job_id_str}"),
+            company_name=target_job.company_name if target_job else (data.company_name or "Partner Employer"),
+            location=target_job.location if target_job else (data.location or profile.location or "Visakhapatnam, Andhra Pradesh"),
+            salary=target_job.salary if target_job else (data.salary or "As per industry standards"),
+            employment_type=target_job.job_type if target_job else (data.employment_type or "Full-time"),
+            work_mode=target_job.work_mode if target_job else (data.work_mode or "On-site"),
             application_type="Job Mela Application" if is_mela else "Direct Job Application",
+            source=getattr(data, "source", None) or ("NTR Vikasa Mega Job Melas" if is_mela else "NTR Vikasa Job Portal Direct"),
             mela_id=data.mela_id,
             mela_title=data.mela_title,
+            recruiter_id=target_job.recruiter_id if target_job else None,
+            match_percentage=match_score,
             status="APPLIED",
             applied_date=today_str,
             applied_at=now,
