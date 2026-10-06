@@ -141,6 +141,35 @@ class SavedJobService:
         )
 
     @staticmethod
+    async def save_job_by_identifier(
+        db: AsyncSession,
+        current_user: User,
+        identifier: str,
+    ) -> SavedJobActionResponse:
+        """Save a job by identifier (job_id, job_number, or UUID)."""
+        from app.repositories.job_repository import JobRepository
+        job = await JobRepository.get_job_by_id(db, identifier)
+        if job:
+            skills_list = [s.skill_name for s in job.job_skills]
+            if not skills_list and job.skills:
+                skills_list = [s.strip() for s in job.skills.split(",") if s.strip()]
+            payload = SaveJobRequest(
+                job_id=job.job_id or job.id,
+                title=job.title,
+                company_name=job.company_name,
+                company_verified=True,
+                location=job.location,
+                salary=job.salary or "Competitive",
+                experience=job.experience or "3-5 years",
+                employment_type=job.job_type or "Full-time",
+                work_mode=job.work_mode or "Hybrid",
+                skills=skills_list,
+            )
+        else:
+            payload = SaveJobRequest(job_id=identifier)
+        return await SavedJobService.save_job(db, current_user, payload)
+
+    @staticmethod
     async def delete_saved_job(
         db: AsyncSession,
         current_user: User,

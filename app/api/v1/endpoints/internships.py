@@ -1,3 +1,8 @@
+"""
+Public & Candidate Internship Endpoints
+GET /api/v1/internships
+GET /api/v1/internships/{internship_id}
+"""
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +17,7 @@ from app.repositories.internship_repository import InternshipRepository
 
 router = APIRouter(
     prefix="/internships",
-    tags=["Internships"],
+    tags=["Internships (Public & Candidate)"],
 )
 
 
@@ -21,25 +26,46 @@ router = APIRouter(
     response_model=PaginatedInternshipResponse,
     status_code=status.HTTP_200_OK,
     summary="List published internship opportunities",
-    description="Retrieve public internships. ONLY published internships are returned; pending, draft, and rejected opportunities are strictly excluded.",
+    description=(
+        "Retrieve public internships. ONLY published, active (not closed) internships are returned; "
+        "pending, draft, and rejected opportunities are strictly excluded."
+    ),
 )
 async def list_published_internships(
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    search: Optional[str] = Query(None, description="Search keyword"),
+    page_size: int = Query(12, ge=1, le=100, description="Items per page"),
+    search: Optional[str] = Query(None, description="Search keyword (title, description, location)"),
+    q: Optional[str] = Query(None, description="Alias for search"),
     location: Optional[str] = Query(None, description="Location filter"),
     mode: Optional[str] = Query(None, description="Work mode filter: Remote, Hybrid, On-site"),
+    work_mode: Optional[str] = Query(None, description="Alias for mode"),
+    duration: Optional[str] = Query(None, description="Duration filter: e.g. '3 Months', '6 Months', '1 Year'"),
+    stipend_min: Optional[int] = Query(None, description="Minimum monthly stipend in INR"),
+    stipend_max: Optional[int] = Query(None, description="Maximum monthly stipend in INR"),
+    company_id: Optional[str] = Query(None, description="Filter by company / recruiter profile ID"),
+    sort: Optional[str] = Query("latest", description="Sort: latest, oldest, stipend_high, stipend_low"),
+    sort_by: Optional[str] = Query(None, description="Alias for sort"),
+    sortBy: Optional[str] = Query(None, description="Alias for sort"),
     db: AsyncSession = Depends(get_database),
 ) -> PaginatedInternshipResponse:
     """
     GET /api/v1/internships
-    Public / candidate endpoint.
+    Public / candidate endpoint — strictly PUBLISHED + not closed.
     """
+    eff_search = search or q
+    eff_mode = work_mode or mode
+    eff_sort = sortBy or sort_by or sort
+
     return await InternshipService.get_published_internships(
         db=db,
-        search=search,
+        search=eff_search,
         location=location,
-        work_mode=mode,
+        work_mode=eff_mode,
+        duration=duration,
+        stipend_min=stipend_min,
+        stipend_max=stipend_max,
+        company_id=company_id,
+        sort=eff_sort,
         page=page,
         page_size=page_size,
     )

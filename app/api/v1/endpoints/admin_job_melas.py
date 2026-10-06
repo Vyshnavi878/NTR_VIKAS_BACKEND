@@ -94,3 +94,33 @@ async def reject_participation(
         current_admin=current_admin,
         payload=payload,
     )
+
+
+# ── Alias Router for /admin/job-mela-approvals ─────────────────────────────
+admin_mela_approvals_router = APIRouter(
+    prefix="/admin/job-mela-approvals",
+    tags=["Admin Job Melas"],
+)
+admin_mela_approvals_router.add_api_route(
+    "/participations",
+    list_admin_participations,
+    methods=["GET"],
+    response_model=List[AdminParticipationItem],
+    status_code=status.HTTP_200_OK,
+    summary="List participations (/admin/job-mela-approvals/participations)",
+)
+admin_mela_approvals_router.add_api_route(
+    "/participations/{participation_id}/approve",
+    approve_participation,
+    methods=["PATCH"],
+    status_code=status.HTTP_200_OK,
+    summary="Approve participation (/admin/job-mela-approvals/participations/{id}/approve)",
+)
+admin_mela_approvals_router.add_api_route(
+    "/participations/{participation_id}/reject",
+    reject_participation,
+    methods=["PATCH"],
+    status_code=status.HTTP_200_OK,
+    summary="Reject participation (/admin/job-mela-approvals/participations/{id}/reject)",
+)
+

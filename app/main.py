@@ -53,6 +53,12 @@ app.include_router(
 )
 
 
+from fastapi.staticfiles import StaticFiles
+
+# Mount static files for uploaded resumes, documents, and logos
+app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
+
+
 @app.get("/health", tags=["Health Check"])
 async def health_check():
     """Basic health check endpoint returning {status: ok}."""

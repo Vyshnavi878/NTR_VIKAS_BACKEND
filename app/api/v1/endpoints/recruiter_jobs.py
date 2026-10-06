@@ -154,6 +154,24 @@ async def get_recruiter_job_detail(
     )
 
 
+@router.post(
+    "/{job_id}/submit",
+    response_model=JobRead,
+    summary="Submit Draft Job for Admin Approval",
+    description="Submits a draft or rejected job opening for Administrator review. Status transitions to PENDING.",
+)
+async def submit_draft_job(
+    job_id: str,
+    current_user: User = Depends(get_current_recruiter),
+    db: AsyncSession = Depends(get_database),
+) -> JobRead:
+    return await JobService.submit_draft_job(
+        db=db,
+        current_user=current_user,
+        job_identifier=job_id,
+    )
+
+
 # ── Register routes on singular prefix /recruiter/jobs as well ──────────────
 recruiter_singular_router.add_api_route(
     "", list_recruiter_jobs, methods=["GET"], response_model=PaginatedJobResponse, summary="List Recruiter Job Postings"
@@ -165,6 +183,9 @@ recruiter_singular_router.add_api_route(
     "/draft", save_job_draft, methods=["POST"], response_model=JobRead, status_code=status.HTTP_201_CREATED, summary="Save Job Draft"
 )
 recruiter_singular_router.add_api_route(
+    "/{job_id}/submit", submit_draft_job, methods=["POST"], response_model=JobRead, summary="Submit Draft Job for Approval"
+)
+recruiter_singular_router.add_api_route(
     "/{job_id}/close", close_job, methods=["POST"], response_model=JobRead, summary="Close Job Posting"
 )
 recruiter_singular_router.add_api_route(
@@ -173,3 +194,4 @@ recruiter_singular_router.add_api_route(
 recruiter_singular_router.add_api_route(
     "/{job_id}", get_recruiter_job_detail, methods=["GET"], response_model=JobRead, summary="Get Job Detail"
 )
+

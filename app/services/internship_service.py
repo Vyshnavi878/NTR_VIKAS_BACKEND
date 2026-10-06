@@ -408,18 +408,27 @@ class InternshipService:
         search: Optional[str] = None,
         location: Optional[str] = None,
         work_mode: Optional[str] = None,
+        duration: Optional[str] = None,
+        stipend_min: Optional[int] = None,
+        stipend_max: Optional[int] = None,
+        company_id: Optional[str] = None,
+        sort: Optional[str] = "latest",
         page: int = 1,
         page_size: int = 20,
     ) -> PaginatedInternshipResponse:
         """
-        Candidate public API. ONLY returns internships with status = PUBLISHED.
+        Candidate / public API. ONLY returns internships with status = PUBLISHED.
         Strictly excludes PENDING, DRAFT, and REJECTED internships.
+        Supports: search, location, work_mode, duration, stipend range, company_id, sort, pagination.
         """
-        # We query only PUBLISHED internships
         from sqlalchemy import and_, or_, func, select
 
-        conds = [Internship.status == "PUBLISHED"]
+        conds = [
+            Internship.status == "PUBLISHED",
+            Internship.closed_at.is_(None),  # Exclude closed internships
+        ]
 
+        # Full-text search across title, description, internship number, company name
         if search and search.strip():
             q = f"%{search.strip()}%"
             conds.append(
@@ -427,25 +436,53 @@ class InternshipService:
                     Internship.title.ilike(q),
                     Internship.internship_number.ilike(q),
                     Internship.description.ilike(q),
+                    Internship.location.ilike(q),
                 )
             )
 
-        if location and location.strip():
+        # Location filter
+        if location and location.strip() and location.upper() not in ("ALL", "ALL LOCATIONS"):
             conds.append(Internship.location.ilike(f"%{location.strip()}%"))
 
-        if work_mode and work_mode.strip() and work_mode.upper() != "ALL":
+        # Work mode filter
+        if work_mode and work_mode.strip() and work_mode.upper() not in ("ALL", "ALL MODES"):
             conds.append(Internship.work_mode.ilike(f"%{work_mode.strip()}%"))
+
+        # Duration filter — partial match (e.g. "3 Months" matches "3 Months")
+        if duration and duration.strip() and duration.upper() not in ("ALL", "ALL DURATIONS"):
+            conds.append(Internship.duration.ilike(f"%{duration.strip()}%"))
+
+        # Stipend range filters (numeric monthly stipend)
+        if stipend_min is not None and stipend_min > 0:
+            conds.append(Internship.stipend_monthly >= stipend_min)
+        if stipend_max is not None and stipend_max > 0:
+            conds.append(Internship.stipend_monthly <= stipend_max)
+
+        # Company filter
+        if company_id and company_id.strip():
+            conds.append(Internship.company_id == company_id.strip())
 
         filter_clause = and_(*conds)
 
         count_stmt = select(func.count(Internship.id)).where(filter_clause)
         total = (await db.execute(count_stmt)).scalar() or 0
 
+        # Sort ordering
+        sort_key = (sort or "latest").lower()
+        if sort_key in ("stipend_high", "stipendhigh"):
+            order_col = Internship.stipend_monthly.desc()
+        elif sort_key in ("stipend_low", "stipendlow"):
+            order_col = Internship.stipend_monthly.asc()
+        elif sort_key == "oldest":
+            order_col = Internship.published_at.asc()
+        else:  # "latest" (default)
+            order_col = Internship.published_at.desc()
+
         stmt = (
             select(Internship)
             .options(selectinload(Internship.company))
             .where(filter_clause)
-            .order_by(Internship.published_at.desc(), Internship.created_at.desc())
+            .order_by(order_col, Internship.created_at.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
@@ -493,3 +530,75 @@ class InternshipService:
             page_size=page_size,
             total_pages=total_pages,
         )
+
+    @classmethod
+    async def submit_draft_internship(
+        cls,
+        db: AsyncSession,
+        current_user: User,
+        internship_id: str,
+    ) -> InternshipRead:
+        """
+        Transition a DRAFT or REJECTED internship to PENDING for administrator review.
+        """
+        internship = await InternshipRepository.get_internship_by_id(db, internship_id)
+        if not internship:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Internship not found.",
+            )
+
+        if current_user.role != "ADMIN":
+            profile = await InternshipRepository.get_recruiter_profile_by_user_id(db, current_user.id)
+            if not profile or internship.company_id != profile.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are not authorized to submit another organization's internship.",
+                )
+
+        now = datetime.now(timezone.utc)
+        internship.status = "PENDING"
+        internship.rejection_reason = None
+        internship.updated_at = now
+        await db.commit()
+        await db.refresh(internship)
+
+        await InternshipRepository.create_audit_log(
+            db=db,
+            actor=current_user.email,
+            action="INTERNSHIP_SUBMITTED_FOR_APPROVAL",
+            entity="INTERNSHIP",
+            entity_id=internship.id,
+            metadata_json={"internship_number": internship.internship_number, "status": "PENDING"},
+        )
+
+        app_count = await InternshipRepository.get_applicant_count_for_internship(
+            db, internship.id, internship.internship_number
+        )
+
+        return InternshipRead(
+            id=internship.id,
+            internship_number=internship.internship_number,
+            company_id=internship.company_id,
+            company_name=internship.company.company_name if internship.company else None,
+            title=internship.title,
+            stipend_monthly=internship.stipend_monthly,
+            stipend=internship.stipend,
+            duration=internship.duration,
+            work_mode=internship.work_mode,
+            workMode=internship.work_mode,
+            location=internship.location,
+            number_of_interns=internship.number_of_interns,
+            openings=internship.number_of_interns,
+            description=internship.description,
+            status=internship.status,
+            rejection_reason=None,
+            applicantsCount=app_count,
+            candidate_count=app_count,
+            candidates_count=app_count,
+            published_at=internship.published_at.strftime("%Y-%m-%d %H:%M:%S") if internship.published_at else None,
+            postedOn=internship.created_at.strftime("%Y-%m-%d") if internship.created_at else None,
+            created_at=internship.created_at.strftime("%Y-%m-%d %H:%M:%S") if internship.created_at else None,
+            updated_at=internship.updated_at.strftime("%Y-%m-%d %H:%M:%S") if internship.updated_at else None,
+        )
+

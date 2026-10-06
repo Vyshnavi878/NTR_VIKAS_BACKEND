@@ -370,33 +370,126 @@ class JobRepository:
         search: Optional[str] = None,
         department: Optional[str] = None,
         location: Optional[str] = None,
+        experience_level: Optional[str] = None,
+        salary_min: Optional[int] = None,
+        salary_max: Optional[int] = None,
+        salary_range: Optional[str] = None,
         work_mode: Optional[str] = None,
+        employment_type: Optional[str] = None,
+        required_skill: Optional[str] = None,
+        industry_sector: Optional[str] = None,
+        sort: Optional[str] = "relevance",
         page: int = 1,
-        page_size: int = 10,
+        page_size: int = 12,
+        current_user: Optional[User] = None,
     ) -> Tuple[List[Dict[str, Any]], int]:
         """
-        Public / candidate facing jobs listing. Strictly returns only PUBLISHED jobs.
+        Public & candidate facing jobs listing.
+        Strictly returns only PUBLISHED jobs from verified/approved companies.
+        Performs database-side filtering, sorting, and pagination.
         """
-        conds = [Job.status == "PUBLISHED"]
+        conds = [
+            Job.status == "PUBLISHED",
+            Job.closed_at.is_(None),
+            Job.recruiter.has(RecruiterProfile.status.in_(["APPROVED", "VERIFIED"]))
+        ]
 
-        if department and department.strip() and department.upper() != "ALL":
-            conds.append(Job.department.ilike(f"%{department.strip()}%"))
 
-        if location and location.strip():
+        # 1. Location filter
+        if location and location.strip() and location.strip().lower() not in ("all locations", "all"):
             conds.append(Job.location.ilike(f"%{location.strip()}%"))
 
-        if work_mode and work_mode.strip() and work_mode.upper() != "ALL":
+        # 2. Experience level filter
+        if experience_level and experience_level.strip() and experience_level.strip().lower() not in ("all experience", "all"):
+            exp_lower = experience_level.strip().lower()
+            if "fresher" in exp_lower or "0-1" in exp_lower:
+                conds.append(or_(Job.experience.ilike("%0%"), Job.experience.ilike("%1%"), Job.experience.ilike("%fresher%")))
+            elif "1-3" in exp_lower:
+                conds.append(or_(Job.experience.ilike("%1%"), Job.experience.ilike("%2%"), Job.experience.ilike("%3%")))
+            elif "3-5" in exp_lower:
+                conds.append(or_(Job.experience.ilike("%3%"), Job.experience.ilike("%4%"), Job.experience.ilike("%5%")))
+            elif "5-8" in exp_lower:
+                conds.append(or_(Job.experience.ilike("%5%"), Job.experience.ilike("%6%"), Job.experience.ilike("%7%"), Job.experience.ilike("%8%")))
+            elif "8" in exp_lower or "+" in exp_lower:
+                conds.append(or_(Job.experience.ilike("%8%"), Job.experience.ilike("%9%"), Job.experience.ilike("%10%"), Job.experience.ilike("%+%")))
+            else:
+                conds.append(Job.experience.ilike(f"%{exp_lower}%"))
+
+        # 3. Salary filter (numeric or parsed range string)
+        min_ctc = None
+        max_ctc = None
+        if salary_min is not None:
+            min_ctc = salary_min * 100000 if salary_min < 1000 else salary_min
+        if salary_max is not None:
+            max_ctc = salary_max * 100000 if salary_max < 1000 else salary_max
+
+        if salary_range and salary_range.strip() and salary_range.strip().lower() not in ("all salaries", "all"):
+            nums = [int(n) for n in re.findall(r'\d+', salary_range)]
+            if len(nums) >= 2:
+                min_ctc = nums[0] * 100000
+                max_ctc = nums[1] * 100000
+            elif len(nums) == 1:
+                min_ctc = nums[0] * 100000
+
+        if min_ctc is not None:
+            conds.append(
+                or_(
+                    Job.salary_max >= min_ctc,
+                    Job.salary_min >= min_ctc,
+                    and_(Job.salary_min == None, Job.salary_max == None)
+                )
+            )
+        if max_ctc is not None:
+            conds.append(
+                or_(
+                    Job.salary_min <= max_ctc,
+                    Job.salary_max <= max_ctc,
+                    and_(Job.salary_min == None, Job.salary_max == None)
+                )
+            )
+
+        # 4. Work mode filter
+        if work_mode and work_mode.strip() and work_mode.strip().lower() not in ("all modes", "all"):
             conds.append(Job.work_mode.ilike(f"%{work_mode.strip()}%"))
 
+        # 5. Employment type filter
+        if employment_type and employment_type.strip() and employment_type.strip().lower() not in ("all types", "all"):
+            conds.append(Job.job_type.ilike(f"%{employment_type.strip()}%"))
+
+        # 6. Skill filter
+        if required_skill and required_skill.strip() and required_skill.strip().lower() not in ("all skills", "all"):
+            s_term = required_skill.strip()
+            conds.append(
+                or_(
+                    Job.skills.ilike(f"%{s_term}%"),
+                    Job.job_skills.any(JobSkill.skill_name.ilike(f"%{s_term}%"))
+                )
+            )
+
+        # 7. Industry / Department filter
+        effective_industry = industry_sector or department
+        if effective_industry and effective_industry.strip() and effective_industry.strip().lower() not in ("all industries", "all"):
+            ind_term = effective_industry.strip()
+            conds.append(
+                or_(
+                    Job.department.ilike(f"%{ind_term}%"),
+                    Job.recruiter.has(RecruiterProfile.primary_industry.ilike(f"%{ind_term}%"))
+                )
+            )
+
+        # 8. Search query across title, description, skills, company name, department, industry
         if search and search.strip():
             q = f"%{search.strip()}%"
             conds.append(
                 or_(
                     Job.title.ilike(q),
-                    Job.department.ilike(q),
+                    Job.description.ilike(q),
                     Job.location.ilike(q),
                     Job.company_name.ilike(q),
                     Job.skills.ilike(q),
+                    Job.department.ilike(q),
+                    Job.recruiter.has(RecruiterProfile.primary_industry.ilike(q)),
+                    Job.job_skills.any(JobSkill.skill_name.ilike(q)),
                 )
             )
 
@@ -405,16 +498,59 @@ class JobRepository:
         count_stmt = select(func.count(Job.id)).where(filter_clause)
         total = (await db.execute(count_stmt)).scalar() or 0
 
+        # Sorting
+        sort_val = (sort or "relevance").lower()
+        if sort_val in ("salaryhigh", "salary_high"):
+            order_clause = [Job.salary_max.desc(), Job.salary_min.desc(), Job.posted_at.desc(), Job.created_at.desc()]
+        elif sort_val in ("salarylow", "salary_low"):
+            order_clause = [Job.salary_min.asc(), Job.salary_max.asc(), Job.posted_at.desc(), Job.created_at.desc()]
+        elif sort_val in ("oldest",):
+            order_clause = [Job.created_at.asc()]
+        elif sort_val in ("newest", "latest"):
+            order_clause = [Job.posted_at.desc(), Job.created_at.desc()]
+        else:
+            order_clause = [Job.posted_at.desc(), Job.created_at.desc()]
+
         stmt = (
             select(Job)
             .options(selectinload(Job.job_skills), selectinload(Job.recruiter))
             .where(filter_clause)
-            .order_by(Job.posted_at.desc(), Job.created_at.desc())
+            .order_by(*order_clause)
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
         result = await db.execute(stmt)
         jobs = result.scalars().all()
+
+        # Candidate personalization
+        saved_job_ids = set()
+        applied_job_ids = set()
+        cand_skills = []
+        if current_user and current_user.role == "CANDIDATE":
+            from app.models.candidate import CandidateProfile
+            from app.models.saved_job import SavedJob
+            from app.models.application import CandidateApplication
+            from app.models.candidate_profile_details import CandidateSkill
+
+            cand_res = await db.execute(
+                select(CandidateProfile).where(CandidateProfile.user_id == current_user.id)
+            )
+            profile = cand_res.scalar_one_or_none()
+            if profile:
+                s_res = await db.execute(
+                    select(SavedJob.job_id).where(SavedJob.candidate_profile_id == profile.id)
+                )
+                saved_job_ids = {str(r[0]) for r in s_res.fetchall()}
+
+                a_res = await db.execute(
+                    select(CandidateApplication.job_id).where(CandidateApplication.candidate_profile_id == profile.id)
+                )
+                applied_job_ids = {str(r[0]) for r in a_res.fetchall()}
+
+                sk_res = await db.execute(
+                    select(CandidateSkill.skill_name).where(CandidateSkill.candidate_profile_id == profile.id)
+                )
+                cand_skills = [r[0].lower().strip() for r in sk_res.fetchall() if r[0]]
 
         items = []
         for j in jobs:
@@ -425,14 +561,50 @@ class JobRepository:
             if not skills_list and j.skills:
                 skills_list = [s.strip() for s in j.skills.split(",") if s.strip()]
 
+            is_saved = bool({str(j.id), str(j.job_id), str(j.job_number or "")} & saved_job_ids)
+            has_applied = bool({str(j.id), str(j.job_id), str(j.job_number or "")} & applied_job_ids)
+
+            match_score = None
+            if current_user and current_user.role == "CANDIDATE":
+                if cand_skills and skills_list:
+                    job_skills_lower = [s.lower().strip() for s in skills_list]
+                    matches = [s for s in job_skills_lower if any(cs in s or s in cs for cs in cand_skills)]
+                    if len(matches) >= 3:
+                        match_score = 96
+                    elif len(matches) == 2:
+                        match_score = 92
+                    elif len(matches) == 1:
+                        match_score = 88
+                    else:
+                        match_score = 80
+                else:
+                    match_score = 85
+
+            company_obj = {
+                "id": j.company_id or j.recruiter_id,
+                "name": j.company_name,
+                "logo_url": j.recruiter.company_logo_path if j.recruiter else None,
+                "verified": True,
+            }
+            industry_val = (
+                j.recruiter.primary_industry
+                if (j.recruiter and j.recruiter.primary_industry)
+                else (j.department or "Information Technology")
+            )
+
             items.append({
                 "id": j.id,
                 "job_id": j.job_id,
                 "job_number": j.job_number or j.job_id.upper(),
                 "company_name": j.company_name,
                 "company_id": j.company_id or j.recruiter_id,
+                "company": company_obj,
+                "company_verified": True,
+                "company_logo": j.recruiter.company_logo_path if j.recruiter else None,
+                "company_logo_path": j.recruiter.company_logo_path if j.recruiter else None,
                 "title": j.title,
                 "department": j.department or "Core Engineering",
+                "industry": industry_val,
                 "job_type": j.job_type,
                 "employment_type": j.job_type,
                 "work_mode": j.work_mode,
@@ -456,6 +628,7 @@ class JobRepository:
                 "qualifications": j.qualifications,
                 "educational_qualifications": j.qualifications,
                 "skills": skills_list,
+                "tags": skills_list,
                 "deadline": j.deadline,
                 "application_deadline": j.deadline,
                 "posted_at": j.posted_at.strftime("%Y-%m-%d %H:%M:%S") if j.posted_at else None,
@@ -469,6 +642,10 @@ class JobRepository:
                 "shortlisted_count": short_cnt,
                 "interviewsCount": int_cnt,
                 "interview_count": int_cnt,
+                "is_saved": is_saved,
+                "has_applied": has_applied,
+                "match_score": match_score,
+                "is_active": j.status == "PUBLISHED",
             })
 
         return items, total

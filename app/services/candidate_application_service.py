@@ -258,23 +258,10 @@ class CandidateApplicationService:
         """
         profile = await CandidateApplicationService.get_candidate_profile(db, current_user.id)
         job_id_str = str(data.job_id).strip()
-
-        # Duplicate check: candidate_id + job_id
-        existing = await CandidateApplicationRepository.get_by_candidate_and_job(
-            db, candidate_profile_id=profile.id, job_id=job_id_str
-        )
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="You have already applied for this job.",
-            )
+        from app.repositories.job_repository import JobRepository
+        target_job = await JobRepository.get_job_by_id(db, job_id_str)
 
         # Check target job if applicable (prevent applying to closed/unpublished jobs)
-        from sqlalchemy import select
-        from app.models.candidate_profile_details import CandidateSkill
-        from app.repositories.job_repository import JobRepository
-
-        target_job = await JobRepository.get_job_by_id(db, job_id_str)
         if target_job:
             if target_job.status == "CLOSED":
                 raise HTTPException(
@@ -286,6 +273,26 @@ class CandidateApplicationService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="This job posting is not currently accepting applications.",
                 )
+
+        # Duplicate check: check all possible identifier aliases for this candidate
+        candidate_job_ids = [job_id_str]
+        if target_job:
+            for alias_id in [target_job.id, target_job.job_id, target_job.job_number]:
+                if alias_id and str(alias_id) not in candidate_job_ids:
+                    candidate_job_ids.append(str(alias_id))
+
+        for jid in candidate_job_ids:
+            existing = await CandidateApplicationRepository.get_by_candidate_and_job(
+                db, candidate_profile_id=profile.id, job_id=jid
+            )
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="You have already applied for this job.",
+                )
+
+        from sqlalchemy import select
+        from app.models.candidate_profile_details import CandidateSkill
 
         # Match score calculation based on candidate skills vs required job skills
         match_score = 85

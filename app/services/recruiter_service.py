@@ -33,6 +33,7 @@ ALLOWED_LOGO_TYPES = {
     "image/png": ".png",
     "image/jpeg": ".jpg",
     "image/jpg": ".jpg",
+    "image/webp": ".webp",
     "image/svg+xml": ".svg",
     "image/svg": ".svg",
 }
@@ -272,6 +273,11 @@ class RecruiterService:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Uploaded JPEG file failed binary integrity verification.",
+            )
+        elif ext == ".webp" and not (content.startswith(b"RIFF") and b"WEBP" in content[:16]):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Uploaded WebP file failed binary integrity verification.",
             )
         elif ext == ".svg":
             head_snippet = content[:1024].decode("utf-8", errors="ignore").lower()

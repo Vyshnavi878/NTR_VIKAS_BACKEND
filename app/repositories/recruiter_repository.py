@@ -43,6 +43,39 @@ class RecruiterRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
+    async def get_profile_by_user_id(db: AsyncSession, user_id: str) -> Optional[RecruiterProfile]:
+        # 1. Direct owner profile
+        stmt = select(RecruiterProfile).where(RecruiterProfile.user_id == user_id)
+        result = await db.execute(stmt)
+        profile = result.scalar_one_or_none()
+        if profile:
+            return profile
+
+        # 2. Check if user is an active team member of a company
+        from app.models.company_team import CompanyMember
+        m_stmt = select(CompanyMember).where(
+            CompanyMember.user_id == user_id,
+            CompanyMember.status != "DEACTIVATED",
+        )
+        m_res = await db.execute(m_stmt)
+        member = m_res.scalar_one_or_none()
+        if member:
+            c_stmt = select(RecruiterProfile).where(RecruiterProfile.id == member.company_id)
+            c_res = await db.execute(c_stmt)
+            return c_res.scalar_one_or_none()
+
+        return None
+
+    @staticmethod
+    async def update_profile(
+        db: AsyncSession,
+        recruiter_profile: RecruiterProfile,
+    ) -> RecruiterProfile:
+        await db.commit()
+        await db.refresh(recruiter_profile)
+        return recruiter_profile
+
+    @staticmethod
     async def create_recruiter(
         db: AsyncSession,
         user: User,

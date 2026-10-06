@@ -109,3 +109,40 @@ async def reject_internship(
         internship_id=internship_id,
         reason=payload.reason,
     )
+
+
+# ── Alias Router for /admin/internship-approvals ────────────────────────────
+admin_internship_approvals_router = APIRouter(
+    prefix="/admin/internship-approvals",
+    tags=["Admin Internships"],
+)
+admin_internship_approvals_router.add_api_route(
+    "",
+    list_admin_internships,
+    methods=["GET"],
+    status_code=status.HTTP_200_OK,
+    summary="List Internships (/admin/internship-approvals)",
+)
+admin_internship_approvals_router.add_api_route(
+    "/{internship_id}",
+    get_admin_internship_detail,
+    methods=["GET"],
+    response_model=AdminInternshipDetail,
+    status_code=status.HTTP_200_OK,
+    summary="Get Internship Detail (/admin/internship-approvals/{internship_id})",
+)
+admin_internship_approvals_router.add_api_route(
+    "/{internship_id}/approve",
+    approve_internship,
+    methods=["POST"],
+    status_code=status.HTTP_200_OK,
+    summary="Approve Internship (/admin/internship-approvals/{internship_id}/approve)",
+)
+admin_internship_approvals_router.add_api_route(
+    "/{internship_id}/reject",
+    reject_internship,
+    methods=["POST"],
+    status_code=status.HTTP_200_OK,
+    summary="Reject Internship (/admin/internship-approvals/{internship_id}/reject)",
+)
+

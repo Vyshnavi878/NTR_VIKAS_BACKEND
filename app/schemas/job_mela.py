@@ -113,6 +113,135 @@ class CandidateMelaCompanyItem(BaseModel):
     company_name: str
     industry: Optional[str] = None
     openings: Optional[str] = None
+    positions_list: List[str] = []
     target_hires: int = 1
     booth_number: Optional[str] = None
+    booth_location: Optional[str] = None
     status: str = "APPROVED"
+
+
+class CandidateJobMelaCard(BaseModel):
+    id: str
+    mela_number: str
+    melaId: Optional[str] = None
+    title: str
+    event: Optional[str] = None
+    description: Optional[str] = None
+    event_date: str
+    date: Optional[str] = None
+    start_time: Optional[str] = "09:00 AM"
+    end_time: Optional[str] = "05:30 PM"
+    time: Optional[str] = "09:00 AM - 05:30 PM"
+    venue: str
+    city: str
+    district: Optional[str] = None
+    state: str = "Andhra Pradesh"
+    status: str = "PUBLISHED"
+    organizer_type: str = "ADMIN"
+    companies_count: int = 0
+    participating_companies_count: int = 0
+    candidates_count: int = 0
+    candidate_count: int = 0
+    image_url: Optional[str] = None
+    flyer_url: Optional[str] = None
+    poster_url: Optional[str] = None
+    registration_required: bool = True
+    registration_deadline: Optional[str] = None
+    candidate_registered: bool = False
+    candidate_pass_id: Optional[str] = None
+    candidate_registration_status: Optional[str] = None
+    participating_companies: List[CandidateMelaCompanyItem] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class JobMelaCounts(BaseModel):
+    all: int = 0
+    upcoming: int = 0
+    ongoing: int = 0
+    completed: int = 0
+
+
+class CandidateJobMelasListResponse(BaseModel):
+    items: List[CandidateJobMelaCard]
+    counts: JobMelaCounts
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class CandidateJobMelaRegistrationRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    resume: Optional[str] = None
+    time_slot: Optional[str] = "Morning Session (09:00 AM - 01:00 PM)"
+
+
+class CandidateJobMelaRegistrationItem(BaseModel):
+    id: str
+    registration_id: str
+    job_mela_id: str
+    mela_id: str
+    melaId: Optional[str] = None
+    mela_number: str
+    title: str
+    event: Optional[str] = None
+    event_title: str
+    event_date: str
+    date: Optional[str] = None
+    start_time: str
+    end_time: str
+    time: str
+    venue: str
+    city: str
+    state: str = "Andhra Pradesh"
+    pass_id: str
+    passId: Optional[str] = None
+    entry_token: str
+    status: str = "CONFIRMED"
+    gate_number: str = "Gate 2 (General Fast-Track)"
+    gateNumber: Optional[str] = None
+    time_slot: str
+    timeSlot: Optional[str] = None
+    qr_code_url: str
+    entry_qr_code: str
+    entryQrCode: Optional[str] = None
+    registered_at: str
+    registered_on: str
+    registeredOn: Optional[str] = None
+    application_id: Optional[str] = None
+    candidate_name: Optional[str] = None
+    candidate_email: Optional[str] = None
+    candidate_phone: Optional[str] = None
+
+
+class CandidateJobMelaApplyCompanyRequest(BaseModel):
+    company_name: str
+    company_id: Optional[str] = None
+    company_entry_id: Optional[str] = None
+    role: str
+    salary: Optional[str] = None
+    location: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    resume: Optional[str] = None
+    skills: Optional[str] = None
+    experience: Optional[str] = None
+    education: Optional[str] = None
+    cover_note: Optional[str] = None
+
+
+class CandidateJobMelaApplyCompanyResponse(BaseModel):
+    id: str
+    application_number: str
+    job_mela_id: str
+    company_name: str
+    job_title: str
+    status: str = "APPLIED"
+    applied_date: str
+    message: str = "Application submitted successfully for Job Mela interview."
+

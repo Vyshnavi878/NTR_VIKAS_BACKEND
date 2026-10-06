@@ -40,4 +40,15 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    company_memberships = relationship(
+        "CompanyMember",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    recruiter_notification_preferences = relationship(
+        "RecruiterNotificationPreference",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 

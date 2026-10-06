@@ -42,6 +42,25 @@ class Interview(Base):
     interviewer = Column(String(150), nullable=True)
     status = Column(String(50), default="SCHEDULED", index=True, nullable=False)
     notes = Column(Text, nullable=True)
+    # Extended scheduling fields
+    scheduled_date = Column(String(50), nullable=True, index=True)
+    start_time = Column(String(50), nullable=True)
+    end_time = Column(String(50), nullable=True)
+    timezone = Column(String(50), default="Asia/Kolkata", nullable=False)
+    format = Column(String(50), default="ONLINE", nullable=False)
+    venue = Column(String(255), nullable=True)
+    interviewer_panel = Column(Text, nullable=True)
+    agenda_notes = Column(Text, nullable=True)
+    company_name = Column(String(200), nullable=True)
+    result = Column(String(50), nullable=True)
+
+    # Status lifecycle and audit timestamps
+    completed_at = Column(DateTime, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+    rescheduled_from_id = Column(String(50), nullable=True, index=True)
+    cancellation_reason = Column(Text, nullable=True)
+    created_by = Column(String(150), nullable=True)
+
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
         DateTime,
@@ -54,3 +73,12 @@ class Interview(Base):
     recruiter = relationship("RecruiterProfile", back_populates="interviews")
     candidate = relationship("CandidateProfile", back_populates="interviews")
     application = relationship("CandidateApplication", back_populates="interviews")
+
+    @property
+    def candidate_id(self) -> str:
+        return self.candidate_profile_id
+
+    @candidate_id.setter
+    def candidate_id(self, val: str) -> None:
+        self.candidate_profile_id = val
+

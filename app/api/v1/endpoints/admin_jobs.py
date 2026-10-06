@@ -102,3 +102,39 @@ async def reject_job(
         job_identifier=job_id,
         reason=payload.reason,
     )
+
+
+# ── Alias Router for /admin/job-approvals ───────────────────────────────────
+admin_job_approvals_router = APIRouter(
+    prefix="/admin/job-approvals",
+    tags=["Admin Jobs Governance"],
+)
+admin_job_approvals_router.add_api_route(
+    "",
+    list_admin_jobs,
+    methods=["GET"],
+    response_model=PaginatedJobResponse,
+    summary="Admin List Job Requisitions (/admin/job-approvals)",
+)
+admin_job_approvals_router.add_api_route(
+    "/{job_id}",
+    get_admin_job_details,
+    methods=["GET"],
+    response_model=AdminJobDetail,
+    summary="Admin Get Job Details (/admin/job-approvals/{job_id})",
+)
+admin_job_approvals_router.add_api_route(
+    "/{job_id}/approve",
+    approve_job,
+    methods=["POST"],
+    response_model=Dict[str, Any],
+    summary="Admin Approve Job (/admin/job-approvals/{job_id}/approve)",
+)
+admin_job_approvals_router.add_api_route(
+    "/{job_id}/reject",
+    reject_job,
+    methods=["POST"],
+    response_model=Dict[str, Any],
+    summary="Admin Reject Job (/admin/job-approvals/{job_id}/reject)",
+)
+

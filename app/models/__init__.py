@@ -20,11 +20,19 @@ from app.models.interview import Interview
 from app.models.recruiter_support import RecruiterSupportRequest
 from app.models.job_mela import JobMela, JobMelaCompanyParticipation
 from app.models.internship import Internship, InternshipApplication, AuditLog
+from app.models.company_team import (
+    CompanyMember,
+    CompanyInvitation,
+    RecruiterNotificationPreference,
+)
 
 __all__ = [
     "User",
     "CandidateProfile",
     "RecruiterProfile",
+    "CompanyMember",
+    "CompanyInvitation",
+    "RecruiterNotificationPreference",
     "PasswordResetToken",
     "SavedJob",
     "CandidateApplication",

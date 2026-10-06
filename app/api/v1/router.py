@@ -8,6 +8,8 @@ from app.api.v1.endpoints import (
     candidate_support,
     candidate_settings,
     notifications,
+    candidate_job_melas,
+    candidate_interviews,
     recruiter_dashboard,
     recruiter_support,
     recruiter_analytics,
@@ -20,7 +22,14 @@ from app.api.v1.endpoints import (
     recruiter_jobs,
     admin_jobs,
     jobs,
+    recruiter_interviews,
+    recruiter_applications,
+    recruiter_company,
+    recruiter_settings,
+    companies,
+    admin_companies,
 )
+
 
 api_router = APIRouter()
 
@@ -48,6 +57,12 @@ api_router.include_router(candidate_settings.router)
 # Candidate Notifications
 api_router.include_router(notifications.router)
 
+# Candidate Job Melas & Registrations
+api_router.include_router(candidate_job_melas.router)
+
+# Candidate Interviews & Schedule
+api_router.include_router(candidate_interviews.router)
+
 # Recruiter Dashboard
 api_router.include_router(recruiter_dashboard.router)
 
@@ -62,9 +77,11 @@ api_router.include_router(recruiter_job_melas.router)
 
 # Admin Job Melas Participation Reviews
 api_router.include_router(admin_job_melas.router)
+api_router.include_router(admin_job_melas.admin_mela_approvals_router)
 
 # Public & Candidate Job Melas
 api_router.include_router(job_melas.router)
+api_router.include_router(job_melas.router, prefix="/public")
 
 # Recruiter Internships (/recruiters/internships and /recruiter/internships)
 api_router.include_router(recruiter_internships.router)
@@ -72,9 +89,11 @@ api_router.include_router(recruiter_internships.recruiter_singular_router)
 
 # Admin Internships Governance
 api_router.include_router(admin_internships.router)
+api_router.include_router(admin_internships.admin_internship_approvals_router)
 
 # Public & Candidate Internships
 api_router.include_router(internships.router)
+api_router.include_router(internships.router, prefix="/public")
 
 # Recruiter Jobs (/recruiters/jobs and /recruiter/jobs)
 api_router.include_router(recruiter_jobs.router)
@@ -82,9 +101,36 @@ api_router.include_router(recruiter_jobs.recruiter_singular_router)
 
 # Admin Jobs Governance
 api_router.include_router(admin_jobs.router)
+api_router.include_router(admin_jobs.admin_job_approvals_router)
 
 # Public & Candidate Jobs
 api_router.include_router(jobs.router)
+api_router.include_router(jobs.router, prefix="/public")
+
+# Public & Candidate Companies
+api_router.include_router(companies.router)
+api_router.include_router(companies.public_alias_router)
+
+# Admin Companies Governance & Verification
+api_router.include_router(admin_companies.router)
+api_router.include_router(admin_companies.verification_alias_router)
+api_router.include_router(admin_companies.singular_verification_alias_router)
+
+# Recruiter Interviews (/recruiter/interviews and /recruiters/interviews)
+api_router.include_router(recruiter_interviews.router)
+api_router.include_router(recruiter_interviews.recruiters_plural_router)
+
+# Recruiter Applications (/recruiter/applications and /recruiters/applications)
+api_router.include_router(recruiter_applications.router)
+api_router.include_router(recruiter_applications.recruiters_plural_router)
+
+# Recruiter Company Profile
+api_router.include_router(recruiter_company.router)
+
+# Recruiter Settings & Preferences (/recruiter/settings)
+api_router.include_router(recruiter_settings.router)
+
+
 
 
 

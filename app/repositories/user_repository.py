@@ -12,6 +12,12 @@ class UserRepository:
     """
 
     @staticmethod
+    async def get_by_email(db: AsyncSession, email: str) -> Optional[User]:
+        stmt = select(User).where(User.email == email.lower().strip())
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def get_by_email_with_profile(db: AsyncSession, email: str) -> Optional[User]:
         stmt = (
             select(User)

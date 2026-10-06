@@ -20,6 +20,16 @@ class JobMela(Base):
     district = Column(String(100), nullable=True, index=True)
     status = Column(String(50), default="PUBLISHED", nullable=False, index=True)
     created_by = Column(String(50), nullable=True)
+    created_by_role = Column(String(50), default="ADMIN", nullable=False)
+    company_id = Column(
+        String(50),
+        ForeignKey("recruiter_profiles.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    image_url = Column(String(500), nullable=True)
+    flyer_url = Column(String(500), nullable=True)
+    registration_deadline = Column(String(50), nullable=True)
+    max_capacity = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
         DateTime,
@@ -34,6 +44,12 @@ class JobMela(Base):
         back_populates="job_mela",
         cascade="all, delete-orphan",
     )
+    registrations = relationship(
+        "JobMelaRegistration",
+        back_populates="job_mela",
+        cascade="all, delete-orphan",
+    )
+    company = relationship("RecruiterProfile", foreign_keys=[company_id])
 
 
 class JobMelaCompanyParticipation(Base):
@@ -73,8 +89,49 @@ class JobMelaCompanyParticipation(Base):
 
     # Relationships
     job_mela = relationship("JobMela", back_populates="participations")
-    company = relationship("RecruiterProfile", backref="mela_participations")
+    company = relationship("RecruiterProfile", backref="mela_participations", foreign_keys=[company_id])
 
     __table_args__ = (
         UniqueConstraint("job_mela_id", "company_id", name="uq_mela_company_participation"),
     )
+
+
+class JobMelaRegistration(Base):
+    __tablename__ = "job_mela_registrations"
+
+    id = Column(String(50), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    job_mela_id = Column(
+        String(50),
+        ForeignKey("job_melas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    candidate_profile_id = Column(
+        String(50),
+        ForeignKey("candidate_profiles.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    pass_id = Column(String(100), unique=True, index=True, nullable=False)
+    status = Column(String(50), default="CONFIRMED", nullable=False, index=True)
+    gate_number = Column(String(100), default="Gate 2 (General Fast-Track)", nullable=False)
+    time_slot = Column(String(100), default="Morning Session (09:00 AM - 01:00 PM)", nullable=False)
+    qr_data = Column(String(255), nullable=True)
+    application_id = Column(String(50), nullable=True, index=True)
+    registered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    # Relationships
+    job_mela = relationship("JobMela", back_populates="registrations")
+    candidate_profile = relationship("CandidateProfile", backref="mela_registrations")
+
+    __table_args__ = (
+        UniqueConstraint("job_mela_id", "candidate_profile_id", name="uq_mela_candidate_registration"),
+    )
+

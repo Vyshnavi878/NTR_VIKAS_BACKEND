@@ -14,6 +14,8 @@ from app.models.job import Job
 from app.models.application import CandidateApplication
 from app.models.interview import Interview
 from app.models.candidate import CandidateProfile
+from app.models.internship import Internship
+from app.models.job_mela import JobMelaCompanyParticipation
 
 
 class RecruiterDashboardRepository:
@@ -49,20 +51,36 @@ class RecruiterDashboardRepository:
         """Count published/active jobs belonging to the recruiter."""
         stmt = select(func.count(Job.id)).where(
             Job.recruiter_id == recruiter_id,
-            Job.status == "PUBLISHED",
+            Job.status.in_(["PUBLISHED", "ACTIVE"]),
         )
         res = await db.execute(stmt)
         return res.scalar() or 0
 
     @staticmethod
     async def get_pending_approvals_count(db: AsyncSession, recruiter_id: str) -> int:
-        """Count jobs awaiting admin moderation/approval."""
-        stmt = select(func.count(Job.id)).where(
+        """Count jobs, internships, and job mela participation requests awaiting admin moderation/approval."""
+        job_stmt = select(func.count(Job.id)).where(
             Job.recruiter_id == recruiter_id,
-            Job.status == "PENDING",
+            Job.status.in_(["PENDING", "PENDING_APPROVAL"]),
         )
-        res = await db.execute(stmt)
-        return res.scalar() or 0
+        job_res = await db.execute(job_stmt)
+        job_count = job_res.scalar() or 0
+
+        intern_stmt = select(func.count(Internship.id)).where(
+            Internship.company_id == recruiter_id,
+            Internship.status.in_(["PENDING", "PENDING_APPROVAL"]),
+        )
+        intern_res = await db.execute(intern_stmt)
+        intern_count = intern_res.scalar() or 0
+
+        mela_stmt = select(func.count(JobMelaCompanyParticipation.id)).where(
+            JobMelaCompanyParticipation.company_id == recruiter_id,
+            JobMelaCompanyParticipation.status.in_(["PENDING", "PENDING_APPROVAL"]),
+        )
+        mela_res = await db.execute(mela_stmt)
+        mela_count = mela_res.scalar() or 0
+
+        return job_count + intern_count + mela_count
 
     @staticmethod
     async def get_total_applications_count(
@@ -96,7 +114,7 @@ class RecruiterDashboardRepository:
         """Count future/pending scheduled interviews for this recruiter."""
         stmt = select(func.count(Interview.id)).where(
             Interview.recruiter_id == recruiter_id,
-            Interview.status == "SCHEDULED",
+            Interview.status.in_(["SCHEDULED", "CONFIRMED", "UPCOMING"]),
         )
         res = await db.execute(stmt)
         return res.scalar() or 0
@@ -213,7 +231,7 @@ class RecruiterDashboardRepository:
             select(Job, app_count_subq.label("applicants_count"))
             .where(
                 Job.recruiter_id == recruiter_id,
-                Job.status == "PUBLISHED",
+                Job.status.in_(["PUBLISHED", "ACTIVE"]),
             )
             .order_by(Job.created_at.desc())
             .limit(limit)
@@ -247,7 +265,7 @@ class RecruiterDashboardRepository:
             select(Interview)
             .where(
                 Interview.recruiter_id == recruiter_id,
-                Interview.status == "SCHEDULED",
+                Interview.status.in_(["SCHEDULED", "CONFIRMED", "UPCOMING"]),
             )
             .order_by(Interview.scheduled_at.asc())
             .limit(limit)

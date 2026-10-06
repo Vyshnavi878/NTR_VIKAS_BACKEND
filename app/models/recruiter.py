@@ -33,6 +33,9 @@ class RecruiterProfile(Base):
     headquarters_city_state = Column(String(150), nullable=False)
     registered_office_address = Column(Text, nullable=False)
     company_description = Column(Text, nullable=False)
+    tagline = Column(String(300), nullable=True)
+    cin_number = Column(String(50), nullable=True)
+    gst_number = Column(String(50), nullable=True)
 
     # Verification Documents
     incorporation_document_path = Column(String(500), nullable=False)
@@ -59,4 +62,6 @@ class RecruiterProfile(Base):
     interviews = relationship("Interview", back_populates="recruiter", cascade="all, delete-orphan")
     applications = relationship("CandidateApplication", back_populates="recruiter")
     support_requests = relationship("RecruiterSupportRequest", back_populates="recruiter", cascade="all, delete-orphan")
+    company_members = relationship("CompanyMember", back_populates="company", cascade="all, delete-orphan")
+    company_invitations = relationship("CompanyInvitation", back_populates="company", cascade="all, delete-orphan")
 

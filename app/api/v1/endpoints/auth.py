@@ -15,10 +15,19 @@ from app.schemas.auth import (
     LoginResponse,
 )
 from app.schemas.recruiter import RecruiterRegisterResponse
+from app.schemas.recruiter_settings import (
+    AcceptInvitationRequest,
+    AcceptInvitationResponse,
+    ValidateInvitationResponse,
+    RecruiterChangePasswordRequest,
+)
 from app.services.candidate_service import CandidateService
 from app.services.recruiter_service import RecruiterService
 from app.services.password_reset_service import PasswordResetService
 from app.services.auth_service import AuthService
+from app.services.recruiter_settings_service import RecruiterSettingsService
+from app.api.deps import get_current_active_user
+from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Password Management"])
 
@@ -203,3 +212,72 @@ async def reset_password(
     5. Returns success response.
     """
     return await PasswordResetService.reset_password(payload=payload, db=db)
+
+
+@router.post(
+    "/change-password",
+    status_code=status.HTTP_200_OK,
+    summary="Change account password",
+    description="Verify current password and update to new password for authenticated user.",
+)
+async def change_password(
+    payload: RecruiterChangePasswordRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    POST /api/v1/auth/change-password
+    Requires Bearer token.
+    """
+    return await RecruiterSettingsService.change_password(
+        db=db, current_user=current_user, payload=payload
+    )
+
+
+@router.post(
+    "/recruiter/invitations/accept",
+    response_model=AcceptInvitationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Accept recruiter team invitation",
+    description="Accept invitation, set password, and create/link account to the existing company workspace.",
+)
+@router.post(
+    "/accept-invitation",
+    response_model=AcceptInvitationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Accept recruiter team invitation (convenience alias)",
+    include_in_schema=False,
+)
+async def accept_invitation(
+    payload: AcceptInvitationRequest,
+    db: AsyncSession = Depends(get_db),
+) -> AcceptInvitationResponse:
+    """
+    POST /api/v1/auth/recruiter/invitations/accept
+    Accepts token, password, confirm_password.
+    """
+    return await RecruiterSettingsService.accept_invitation(db=db, payload=payload)
+
+
+@router.get(
+    "/invitations/{token}/validate",
+    response_model=ValidateInvitationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Validate invitation token",
+    description="Check validity and fetch company info for an invitation token.",
+)
+@router.get(
+    "/recruiter/invitations/{token}/validate",
+    response_model=ValidateInvitationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Validate invitation token (alias)",
+    include_in_schema=False,
+)
+async def validate_invitation(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+) -> ValidateInvitationResponse:
+    """
+    GET /api/v1/auth/invitations/{token}/validate
+    """
+    return await RecruiterSettingsService.validate_invitation_token(db=db, raw_token=token)

@@ -66,6 +66,24 @@ async def save_job(
     return await SavedJobService.save_job(db, current_user, payload)
 
 
+@router.post(
+    "/{job_id}",
+    response_model=SavedJobActionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Save a Job by ID",
+    description="Bookmarks a job for the authenticated candidate by its job ID.",
+)
+async def save_job_by_id(
+    job_id: str,
+    current_user: User = Depends(get_current_candidate),
+    db: AsyncSession = Depends(get_database),
+) -> SavedJobActionResponse:
+    """
+    POST /api/v1/candidate/saved-jobs/{job_id}
+    """
+    return await SavedJobService.save_job_by_identifier(db, current_user, job_id)
+
+
 @router.delete(
     "/{identifier}",
     response_model=SavedJobDeleteResponse,

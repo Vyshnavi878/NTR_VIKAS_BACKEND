@@ -339,6 +339,9 @@ class JobService:
             closed_at=job.closed_at.strftime("%Y-%m-%d %H:%M:%S") if job.closed_at else None,
             created_at=job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else None,
             updated_at=job.updated_at.strftime("%Y-%m-%d %H:%M:%S") if job.updated_at else None,
+            rejection_reason=job.rejection_reason,
+            approved_by=job.approved_by,
+            approved_at=job.approved_at.strftime("%Y-%m-%d %H:%M:%S") if job.approved_at else None,
             applicantsCount=app_cnt,
             applicant_count=app_cnt,
             shortlistedCount=short_cnt,
@@ -484,6 +487,9 @@ class JobService:
             closed_at=job.closed_at.strftime("%Y-%m-%d %H:%M:%S") if job.closed_at else None,
             created_at=job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else None,
             updated_at=job.updated_at.strftime("%Y-%m-%d %H:%M:%S") if job.updated_at else None,
+            rejection_reason=job.rejection_reason,
+            approved_by=job.approved_by,
+            approved_at=job.approved_at.strftime("%Y-%m-%d %H:%M:%S") if job.approved_at else None,
             applicantsCount=app_cnt,
             applicant_count=app_cnt,
             shortlistedCount=short_cnt,
@@ -721,19 +727,37 @@ class JobService:
         search: Optional[str] = None,
         department: Optional[str] = None,
         location: Optional[str] = None,
+        experience_level: Optional[str] = None,
+        salary_min: Optional[int] = None,
+        salary_max: Optional[int] = None,
+        salary_range: Optional[str] = None,
         work_mode: Optional[str] = None,
+        employment_type: Optional[str] = None,
+        required_skill: Optional[str] = None,
+        industry_sector: Optional[str] = None,
+        sort: Optional[str] = "relevance",
         page: int = 1,
-        page_size: int = 10,
+        page_size: int = 12,
+        current_user: Optional[User] = None,
     ) -> PaginatedJobResponse:
-        """Candidate public view. Strictly returns only PUBLISHED jobs."""
+        """Candidate and public view. Strictly returns only PUBLISHED jobs."""
         items_data, total = await JobRepository.get_published_jobs(
             db=db,
             search=search,
             department=department,
             location=location,
+            experience_level=experience_level,
+            salary_min=salary_min,
+            salary_max=salary_max,
+            salary_range=salary_range,
             work_mode=work_mode,
+            employment_type=employment_type,
+            required_skill=required_skill,
+            industry_sector=industry_sector,
+            sort=sort,
             page=page,
             page_size=page_size,
+            current_user=current_user,
         )
         items = [JobRead(**item) for item in items_data]
         total_pages = (total + page_size - 1) // page_size if total > 0 else 1
@@ -782,6 +806,68 @@ class JobService:
             db, job.job_id, job.job_number, job.id
         )
         skills_list = [s.skill_name for s in job.job_skills]
+        if not skills_list and job.skills:
+            skills_list = [s.strip() for s in job.skills.split(",") if s.strip()]
+
+        is_saved = False
+        has_applied = False
+        match_score = None
+        if current_user and current_user.role == "CANDIDATE":
+            from app.models.candidate import CandidateProfile
+            from app.models.saved_job import SavedJob
+            from app.models.application import CandidateApplication
+            from app.models.candidate_profile_details import CandidateSkill
+
+            cand_res = await db.execute(
+                select(CandidateProfile).where(CandidateProfile.user_id == current_user.id)
+            )
+            profile = cand_res.scalar_one_or_none()
+            if profile:
+                s_res = await db.execute(
+                    select(SavedJob.id).where(
+                        SavedJob.candidate_profile_id == profile.id,
+                        SavedJob.job_id.in_([job.id, job.job_id, job.job_number or ""])
+                    )
+                )
+                is_saved = bool(s_res.first())
+
+                a_res = await db.execute(
+                    select(CandidateApplication.id).where(
+                        CandidateApplication.candidate_profile_id == profile.id,
+                        CandidateApplication.job_id.in_([job.id, job.job_id, job.job_number or ""])
+                    )
+                )
+                has_applied = bool(a_res.first())
+
+                sk_res = await db.execute(
+                    select(CandidateSkill.skill_name).where(CandidateSkill.candidate_profile_id == profile.id)
+                )
+                cand_skills = [r[0].lower().strip() for r in sk_res.fetchall() if r[0]]
+                if cand_skills and skills_list:
+                    job_tags = [s.lower().strip() for s in skills_list]
+                    matches = [s for s in job_tags if any(cs in s or s in cs for cs in cand_skills)]
+                    if len(matches) >= 3:
+                        match_score = 96
+                    elif len(matches) == 2:
+                        match_score = 92
+                    elif len(matches) == 1:
+                        match_score = 88
+                    else:
+                        match_score = 80
+                else:
+                    match_score = 85
+
+        company_obj = {
+            "id": job.company_id or job.recruiter_id,
+            "name": job.company_name,
+            "logo_url": job.recruiter.company_logo_path if job.recruiter else None,
+            "verified": True,
+        }
+        industry_val = (
+            job.recruiter.primary_industry
+            if (job.recruiter and job.recruiter.primary_industry)
+            else (job.department or "Information Technology")
+        )
 
         return JobRead(
             id=job.id,
@@ -789,8 +875,13 @@ class JobService:
             job_number=job.job_number or job.job_id.upper(),
             company_name=job.company_name,
             company_id=job.company_id or job.recruiter_id,
+            company=company_obj,
+            company_verified=True,
+            company_logo=job.recruiter.company_logo_path if job.recruiter else None,
+            company_logo_path=job.recruiter.company_logo_path if job.recruiter else None,
             title=job.title,
-            department=job.department,
+            department=job.department or "Core Engineering",
+            industry=industry_val,
             job_type=job.job_type,
             employment_type=job.job_type,
             work_mode=job.work_mode,
@@ -814,6 +905,7 @@ class JobService:
             qualifications=job.qualifications,
             educational_qualifications=job.qualifications,
             skills=skills_list,
+            tags=skills_list,
             deadline=job.deadline,
             application_deadline=job.deadline,
             posted_at=job.posted_at.strftime("%Y-%m-%d %H:%M:%S") if job.posted_at else None,
@@ -821,6 +913,107 @@ class JobService:
             closed_at=job.closed_at.strftime("%Y-%m-%d %H:%M:%S") if job.closed_at else None,
             created_at=job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else None,
             updated_at=job.updated_at.strftime("%Y-%m-%d %H:%M:%S") if job.updated_at else None,
+            rejection_reason=job.rejection_reason,
+            approved_by=job.approved_by,
+            approved_at=job.approved_at.strftime("%Y-%m-%d %H:%M:%S") if job.approved_at else None,
+            applicantsCount=app_cnt,
+            applicant_count=app_cnt,
+            shortlistedCount=short_cnt,
+            shortlisted_count=short_cnt,
+            interviewsCount=int_cnt,
+            interview_count=int_cnt,
+            is_saved=is_saved,
+            has_applied=has_applied,
+            match_score=match_score,
+            is_active=job.status == "PUBLISHED",
+        )
+
+    @classmethod
+    async def submit_draft_job(
+        cls,
+        db: AsyncSession,
+        current_user: User,
+        job_identifier: str,
+    ) -> JobRead:
+        """
+        Transition a DRAFT or REJECTED job to PENDING for administrator review.
+        """
+        job = await JobRepository.get_job_by_id(db, job_identifier)
+        if not job:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found.",
+            )
+
+        if current_user.role != "ADMIN":
+            profile = await JobRepository.get_recruiter_profile_by_user_id(db, current_user.id)
+            if not profile or (job.recruiter_id != profile.id and job.company_id != profile.id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are not authorized to submit another organization's job.",
+                )
+
+        now = datetime.now(timezone.utc)
+        job.status = "PENDING"
+        job.rejection_reason = None
+        job.updated_at = now
+        await db.commit()
+
+        await JobRepository.create_audit_log(
+            db=db,
+            actor=current_user.email,
+            action="JOB_SUBMITTED_FOR_APPROVAL",
+            entity="JOB",
+            entity_id=job.id,
+            metadata_json={"job_number": job.job_number, "status": "PENDING"},
+        )
+
+        app_cnt, short_cnt, int_cnt = await JobRepository.get_pipeline_counts(
+            db, job.job_id, job.job_number, job.id
+        )
+        skills_list = [s.skill_name for s in job.job_skills]
+
+        return JobRead(
+            id=job.id,
+            job_id=job.job_id,
+            job_number=job.job_number or job.job_id.upper(),
+            company_name=job.company_name,
+            company_id=job.company_id or job.recruiter_id,
+            title=job.title,
+            department=job.department or "Core Engineering",
+            job_type=job.job_type,
+            employment_type=job.job_type,
+            work_mode=job.work_mode,
+            workMode=job.work_mode,
+            location=job.location,
+            experience=job.experience or "3-5 years",
+            experience_level=job.experience or "3-5 years",
+            salary=job.salary,
+            salary_min=job.salary_min,
+            salary_max=job.salary_max,
+            salary_currency=job.salary_currency or "INR",
+            openings=job.openings,
+            number_of_openings=job.openings,
+            status=job.status,
+            description=job.description,
+            job_summary=job.description,
+            responsibilities=job.responsibilities,
+            key_responsibilities=job.responsibilities,
+            requirements=job.requirements,
+            technical_requirements=job.requirements,
+            qualifications=job.qualifications,
+            educational_qualifications=job.qualifications,
+            skills=skills_list,
+            deadline=job.deadline,
+            application_deadline=job.deadline,
+            posted_at=job.posted_at.strftime("%Y-%m-%d %H:%M:%S") if job.posted_at else None,
+            createdAt=job.posted_at.strftime("%Y-%m-%d") if job.posted_at else (job.created_at.strftime("%Y-%m-%d") if job.created_at else None),
+            closed_at=job.closed_at.strftime("%Y-%m-%d %H:%M:%S") if job.closed_at else None,
+            created_at=job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else None,
+            updated_at=job.updated_at.strftime("%Y-%m-%d %H:%M:%S") if job.updated_at else None,
+            rejection_reason=None,
+            approved_by=job.approved_by,
+            approved_at=job.approved_at.strftime("%Y-%m-%d %H:%M:%S") if job.approved_at else None,
             applicantsCount=app_cnt,
             applicant_count=app_cnt,
             shortlistedCount=short_cnt,
@@ -828,3 +1021,4 @@ class JobService:
             interviewsCount=int_cnt,
             interview_count=int_cnt,
         )
+

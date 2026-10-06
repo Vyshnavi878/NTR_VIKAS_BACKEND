@@ -113,6 +113,16 @@ class JobRead(BaseModel):
     shortlisted_count: int = 0
     interviewsCount: int = 0
     interview_count: int = 0
+    company: Optional[Dict[str, Any]] = None
+    company_verified: bool = True
+    company_logo: Optional[str] = None
+    company_logo_path: Optional[str] = None
+    industry: Optional[str] = None
+    tags: List[str] = []
+    is_saved: bool = False
+    has_applied: bool = False
+    match_score: Optional[int] = None
+    is_active: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 

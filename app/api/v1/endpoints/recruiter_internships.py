@@ -143,3 +143,32 @@ async def close_internship(
         current_user=current_user,
         internship_id=internship_id,
     )
+
+
+@router.post(
+    "/{internship_id}/submit",
+    response_model=InternshipRead,
+    status_code=status.HTTP_200_OK,
+    summary="Submit draft or rejected internship for approval",
+    description="Recruiter submits a draft or rejected internship program for Administrator review.",
+)
+@recruiter_singular_router.post(
+    "/{internship_id}/submit",
+    response_model=InternshipRead,
+    status_code=status.HTTP_200_OK,
+    include_in_schema=False,
+)
+async def submit_draft_internship(
+    internship_id: str,
+    current_user: User = Depends(get_current_recruiter),
+    db: AsyncSession = Depends(get_database),
+) -> InternshipRead:
+    """
+    POST /api/v1/recruiters/internships/{internship_id}/submit
+    """
+    return await InternshipService.submit_draft_internship(
+        db=db,
+        current_user=current_user,
+        internship_id=internship_id,
+    )
+
