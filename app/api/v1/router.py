@@ -28,10 +28,18 @@ from app.api.v1.endpoints import (
     recruiter_settings,
     companies,
     admin_companies,
+    admin_profile,
+    admin_settings,
+    admin_audit_logs,
+    admin_analytics,
+    reports,
+    admin_reports,
+    admin_dashboard,
 )
 
 
 api_router = APIRouter()
+
 
 # Authentication & Registration
 api_router.include_router(auth.router)
@@ -129,6 +137,28 @@ api_router.include_router(recruiter_company.router)
 
 # Recruiter Settings & Preferences (/recruiter/settings)
 api_router.include_router(recruiter_settings.router)
+
+# Admin Profile & Identity (/admin/profile)
+api_router.include_router(admin_profile.router)
+
+# Admin Platform Settings (/admin/settings)
+api_router.include_router(admin_settings.router)
+
+# Admin Audit Logs (/admin/audit-logs)
+api_router.include_router(admin_audit_logs.router)
+
+# Admin Platform Analytics (/admin/analytics)
+api_router.include_router(admin_analytics.router)
+
+# User Grievance & Reports Submission (/reports)
+api_router.include_router(reports.router)
+
+# Admin Reports & Complaints Moderation (/admin/reports)
+api_router.include_router(admin_reports.router)
+
+# Admin Command Center Dashboard (/admin/dashboard)
+api_router.include_router(admin_dashboard.router)
+
 
 
 

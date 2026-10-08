@@ -17,6 +17,8 @@ async def lifespan(app: FastAPI):
     os.makedirs(f"{settings.UPLOAD_DIR}/resumes", exist_ok=True)
     os.makedirs(f"{settings.UPLOAD_DIR}/documents", exist_ok=True)
     os.makedirs(f"{settings.UPLOAD_DIR}/logos", exist_ok=True)
+    os.makedirs(f"{settings.UPLOAD_DIR}/admin/profile", exist_ok=True)
+
 
     # Initialize and seed database if necessary
     try:

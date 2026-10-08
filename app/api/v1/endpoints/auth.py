@@ -13,13 +13,14 @@ from app.schemas.auth import (
     ResetPasswordResponse,
     LoginRequest,
     LoginResponse,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
 )
 from app.schemas.recruiter import RecruiterRegisterResponse
 from app.schemas.recruiter_settings import (
     AcceptInvitationRequest,
     AcceptInvitationResponse,
     ValidateInvitationResponse,
-    RecruiterChangePasswordRequest,
 )
 from app.services.candidate_service import CandidateService
 from app.services.recruiter_service import RecruiterService
@@ -216,20 +217,23 @@ async def reset_password(
 
 @router.post(
     "/change-password",
+    response_model=ChangePasswordResponse,
     status_code=status.HTTP_200_OK,
     summary="Change account password",
     description="Verify current password and update to new password for authenticated user.",
 )
 async def change_password(
-    payload: RecruiterChangePasswordRequest,
+    payload: ChangePasswordRequest,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> ChangePasswordResponse:
     """
     POST /api/v1/auth/change-password
-    Requires Bearer token.
+    Requires Bearer token. Authenticates user from JWT, verifies current password,
+    validates new password against security rules, hashes new password with bcrypt,
+    updates database, and records audit log for administrator accounts.
     """
-    return await RecruiterSettingsService.change_password(
+    return await AuthService.change_password(
         db=db, current_user=current_user, payload=payload
     )
 

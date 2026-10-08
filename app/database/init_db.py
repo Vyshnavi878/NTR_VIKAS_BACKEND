@@ -21,7 +21,9 @@ from app.models.notification import Notification
 from app.models.recruiter import RecruiterProfile
 from app.models.job import Job
 from app.models.interview import Interview
+from app.models.admin_profile import AdminProfile
 from app.core.security import hash_password
+
 
 DEMO_USERS = [
     {
@@ -97,8 +99,8 @@ async def seed_demo_users() -> None:
             stmt = select(User).where(User.email == u["email"])
             res = await session.execute(stmt)
             existing = res.scalar_one_or_none()
+            user_id = existing.id if existing else str(uuid.uuid4())
             if not existing:
-                user_id = str(uuid.uuid4())
                 user = User(
                     id=user_id,
                     email=u["email"],
@@ -125,7 +127,23 @@ async def seed_demo_users() -> None:
                     )
                     session.add(profile)
 
+            if u["role"] == "ADMIN":
+                adm_prof_stmt = select(AdminProfile).where(AdminProfile.user_id == user_id)
+                adm_prof_res = await session.execute(adm_prof_stmt)
+                if not adm_prof_res.scalar_one_or_none():
+                    adm_profile = AdminProfile(
+                        id=str(uuid.uuid4()),
+                        user_id=user_id,
+                        full_name=u["name"],
+                        designation="State Operations Lead" if "admin1" in u["email"] else "Directorate of Employment",
+                        contact_phone="+91 98765 43210" if "admin1" in u["email"] else "+91 98765 43211",
+                        department="State Employment & Skill Development Authority",
+                        profile_image_url=None,
+                    )
+                    session.add(adm_profile)
+
         await session.commit()
+
 
 
 INITIAL_CANDIDATE1_SAVED_JOBS = [

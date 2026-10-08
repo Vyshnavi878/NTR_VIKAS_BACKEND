@@ -80,6 +80,15 @@ class CandidateService:
         4. Persist User and CandidateProfile records directly to MySQL via CandidateRepository
         5. Return HTTP 201 response with JWT access token (Aadhaar omitted for security)
         """
+        # 0. Check Platform Maintenance Mode
+        from app.repositories.platform_settings_repository import PlatformSettingsRepository
+        settings = await PlatformSettingsRepository.get_settings(db)
+        if settings and settings.platform_maintenance_mode:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Candidate registration is temporarily unavailable due to platform maintenance.",
+            )
+
         if not payload.terms_accepted:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, ConfigDict, Field
+
 
 
 class JobCreate(BaseModel):
@@ -113,7 +114,7 @@ class JobRead(BaseModel):
     shortlisted_count: int = 0
     interviewsCount: int = 0
     interview_count: int = 0
-    company: Optional[Dict[str, Any]] = None
+    company: Optional[Union[Dict[str, Any], str]] = None
     company_verified: bool = True
     company_logo: Optional[str] = None
     company_logo_path: Optional[str] = None
@@ -140,7 +141,8 @@ class AdminJobDetail(JobRead):
     recruiter: Optional[str] = None
     recruiter_email: Optional[str] = None
     recruiter_phone: Optional[str] = None
-    company: Optional[str] = None
+    company: Optional[Union[Dict[str, Any], str]] = None
+
 
 
 class AdminRejectJobRequest(BaseModel):

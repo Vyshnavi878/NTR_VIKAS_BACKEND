@@ -81,7 +81,38 @@ class InternshipService:
         interns_count = payload.number_of_interns or payload.openings or 1
         description = (payload.description or "").strip()
 
-        # 3. Create internship in database
+        # Load Platform Settings
+        from app.repositories.platform_settings_repository import PlatformSettingsRepository
+        settings = await PlatformSettingsRepository.get_settings(db)
+
+        # 1. Check Mandatory Recruiter Legal Verification
+        if settings and settings.mandatory_recruiter_legal_verification and initial_status != "DRAFT":
+            if profile.status and profile.status.upper() in ["PENDING_APPROVAL", "REJECTED"]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Mandatory Legal Verification: Company COI & GST verification must be approved before submitting internships.",
+                )
+
+        # 2. Check Strict Zero-Fee Candidate Rule
+        if settings and settings.strict_zero_fee_candidate_rule:
+            combined_text = f"{payload.title or ''} {payload.description or ''}".lower()
+            fee_keywords = ["registration fee", "security deposit", "application fee", "training fee", "processing fee", "caution deposit"]
+            for kw in fee_keywords:
+                if kw in combined_text:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Internship opportunity violates the Zero-Fee Candidate Rule ('{kw}' detected). Recruiters are strictly prohibited from demanding fees from candidates.",
+                    )
+
+        # 3. Check Pre-Publish Job Moderation Queue
+        if initial_status == "DRAFT":
+            final_status = "DRAFT"
+        elif settings and not settings.pre_publish_job_moderation_queue:
+            final_status = "PUBLISHED"
+        else:
+            final_status = "PENDING"
+
+        # 4. Create internship in database
         internship = await InternshipRepository.create_internship(
             db=db,
             company_id=profile.id,
@@ -94,7 +125,7 @@ class InternshipService:
             location=location,
             number_of_interns=interns_count,
             description=description,
-            status=initial_status,
+            status=final_status,
         )
 
         # 4. Audit Log

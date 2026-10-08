@@ -112,11 +112,40 @@ class JobService:
                     detail="Job Summary / Overview is required for approval submission.",
                 )
 
+        # Load Platform Settings
+        from app.repositories.platform_settings_repository import PlatformSettingsRepository
+        settings = await PlatformSettingsRepository.get_settings(db)
+
+        # 1. Check Mandatory Recruiter Legal Verification
+        if settings and settings.mandatory_recruiter_legal_verification and not as_draft:
+            if profile.status and profile.status.upper() in ["PENDING_APPROVAL", "REJECTED"]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Mandatory Legal Verification: Company COI & GST verification must be approved before posting vacancies.",
+                )
+
+        # 2. Check Strict Zero-Fee Candidate Rule
+        if settings and settings.strict_zero_fee_candidate_rule:
+            combined_text = f"{data.title or ''} {data.description or ''} {data.responsibilities or ''} {data.requirements or ''}".lower()
+            fee_keywords = ["registration fee", "security deposit", "application fee", "training fee", "processing fee", "caution deposit"]
+            for kw in fee_keywords:
+                if kw in combined_text:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Job posting violates the Zero-Fee Candidate Rule ('{kw}' detected). Recruiters are strictly prohibited from demanding fees from candidates.",
+                    )
+
         now = datetime.now(timezone.utc)
         job_id_str, job_number_str = await JobRepository.generate_next_job_number(db)
         primary_id = str(uuid.uuid4())
 
-        initial_status = "DRAFT" if as_draft else "PENDING"
+        # 3. Check Pre-Publish Job Moderation Queue
+        if as_draft:
+            initial_status = "DRAFT"
+        elif settings and not settings.pre_publish_job_moderation_queue:
+            initial_status = "PUBLISHED"
+        else:
+            initial_status = "PENDING"
 
         # Resolve aliases
         dept = data.department or "Core Engineering"

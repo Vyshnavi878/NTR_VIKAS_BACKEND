@@ -25,11 +25,17 @@ from app.models.company_team import (
     CompanyInvitation,
     RecruiterNotificationPreference,
 )
+from app.models.admin_profile import AdminProfile
+from app.models.platform_settings import PlatformSettings
+from app.models.report import Report
 
 __all__ = [
     "User",
     "CandidateProfile",
     "RecruiterProfile",
+    "AdminProfile",
+    "PlatformSettings",
+    "Report",
     "CompanyMember",
     "CompanyInvitation",
     "RecruiterNotificationPreference",
@@ -56,4 +62,5 @@ __all__ = [
     "InternshipApplication",
     "AuditLog",
 ]
+
 

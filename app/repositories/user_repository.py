@@ -24,6 +24,7 @@ class UserRepository:
             .options(
                 selectinload(User.candidate_profile),
                 selectinload(User.recruiter_profile),
+                selectinload(User.admin_profile),
             )
             .where(User.email == email.lower().strip())
         )
@@ -37,8 +38,10 @@ class UserRepository:
             .options(
                 selectinload(User.candidate_profile),
                 selectinload(User.recruiter_profile),
+                selectinload(User.admin_profile),
             )
             .where(User.id == user_id)
         )
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
+

@@ -94,6 +94,7 @@ verification_alias_router.add_api_route(
     response_model=List[AdminCompanyVerificationItem],
     status_code=status.HTTP_200_OK,
     summary="List company verifications (/admin/company-verifications)",
+    include_in_schema=False,
 )
 verification_alias_router.add_api_route(
     "/{company_id}/approve",
@@ -101,6 +102,7 @@ verification_alias_router.add_api_route(
     methods=["POST", "PATCH"],
     status_code=status.HTTP_200_OK,
     summary="Approve company verification (/admin/company-verifications/{id}/approve)",
+    include_in_schema=False,
 )
 verification_alias_router.add_api_route(
     "/{company_id}/reject",
@@ -108,6 +110,7 @@ verification_alias_router.add_api_route(
     methods=["POST", "PATCH"],
     status_code=status.HTTP_200_OK,
     summary="Reject company verification (/admin/company-verifications/{id}/reject)",
+    include_in_schema=False,
 )
 
 # Attach aliases to singular_verification_alias_router (/admin/company-verification)
@@ -122,6 +125,7 @@ singular_verification_alias_router.add_api_route(
     response_model=List[AdminCompanyVerificationItem],
     status_code=status.HTTP_200_OK,
     summary="List company verifications (/admin/company-verification)",
+    include_in_schema=False,
 )
 singular_verification_alias_router.add_api_route(
     "/{company_id}/approve",
@@ -129,6 +133,7 @@ singular_verification_alias_router.add_api_route(
     methods=["POST", "PATCH"],
     status_code=status.HTTP_200_OK,
     summary="Approve company verification (/admin/company-verification/{id}/approve)",
+    include_in_schema=False,
 )
 singular_verification_alias_router.add_api_route(
     "/{company_id}/reject",
@@ -136,5 +141,7 @@ singular_verification_alias_router.add_api_route(
     methods=["POST", "PATCH"],
     status_code=status.HTTP_200_OK,
     summary="Reject company verification (/admin/company-verification/{id}/reject)",
+    include_in_schema=False,
 )
+
 

@@ -219,3 +219,17 @@ class LoginResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: Optional[str] = Field(None, description="Current account password")
+    currentPassword: Optional[str] = Field(None, description="CamelCase alias for current password")
+    new_password: Optional[str] = Field(None, description="New secure password")
+    newPassword: Optional[str] = Field(None, description="CamelCase alias for new password")
+    confirm_password: Optional[str] = Field(None, description="Confirm new password")
+    confirmPassword: Optional[str] = Field(None, description="CamelCase alias for confirm password")
+
+
+class ChangePasswordResponse(BaseModel):
+    status: str = "success"
+    message: str = "Password changed successfully."
+
+

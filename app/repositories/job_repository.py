@@ -308,6 +308,12 @@ class JobRepository:
             if not skills_list and job.skills:
                 skills_list = [s.strip() for s in job.skills.split(",") if s.strip()]
 
+            company_obj = {
+                "id": rec.id if rec else job.recruiter_id,
+                "name": job.company_name,
+                "verified": True,
+                "logo_url": rec.company_logo_path if rec else None,
+            }
             items.append({
                 "id": job.id,
                 "job_id": job.job_id,
@@ -315,11 +321,15 @@ class JobRepository:
                 "title": job.title,
                 "company_id": rec.id if rec else job.recruiter_id,
                 "company_name": job.company_name,
-                "company": job.company_name,
+                "company": company_obj,
+                "company_verified": True,
+                "company_logo": rec.company_logo_path if rec else None,
+                "company_logo_path": rec.company_logo_path if rec else None,
                 "recruiter_name": rec.recruiter_name if rec else None,
                 "recruiter": rec.recruiter_name if rec else None,
                 "recruiter_email": rec.work_email if rec else None,
                 "recruiter_phone": rec.mobile_phone if rec else None,
+
                 "department": job.department or "Core Engineering",
                 "job_type": job.job_type,
                 "employment_type": job.job_type,
