@@ -33,6 +33,8 @@ router = APIRouter(
 async def list_admin_jobs(
     status: Optional[str] = Query(None, description="Status filter: ALL, PENDING, PUBLISHED, DRAFT, CLOSED, REJECTED"),
     department: Optional[str] = Query(None, description="Department filter"),
+    company: Optional[str] = Query(None, description="Company filter"),
+    company_id: Optional[str] = Query(None, description="Company ID filter"),
     search: Optional[str] = Query(None, description="Search term for title, number, company, or skills"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
@@ -44,6 +46,8 @@ async def list_admin_jobs(
         status_filter=status or "ALL",
         department=department,
         search=search,
+        company=company,
+        company_id=company_id,
         page=page,
         page_size=page_size,
     )
@@ -64,6 +68,40 @@ async def get_admin_job_details(
         db=db,
         job_identifier=job_id,
     )
+
+
+@router.patch(
+    "/{job_id}/approval",
+    response_model=Dict[str, Any],
+    summary="Admin Job Approval / Rejection Decision",
+    description="Approve or reject a job requisition. Status can be 'approved', 'rejected', or 'closed'.",
+)
+async def patch_job_approval(
+    job_id: str,
+    payload: Dict[str, Any],
+    current_admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_database),
+) -> Dict[str, Any]:
+    target_status = str(payload.get("status", "")).strip().lower()
+    reason = payload.get("reason")
+    if target_status in ["approved", "published", "active"]:
+        return await JobService.approve_job(
+            db=db,
+            current_admin=current_admin,
+            job_identifier=job_id,
+        )
+    elif target_status in ["rejected", "reject"]:
+        return await JobService.reject_job(
+            db=db,
+            current_admin=current_admin,
+            job_identifier=job_id,
+            reason=reason or "Rejected by administrator",
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported status transition '{target_status}'. Expected 'approved' or 'rejected'.",
+        )
 
 
 @router.post(
@@ -122,6 +160,13 @@ admin_job_approvals_router.add_api_route(
     methods=["GET"],
     response_model=AdminJobDetail,
     summary="Admin Get Job Details (/admin/job-approvals/{job_id})",
+)
+admin_job_approvals_router.add_api_route(
+    "/{job_id}/approval",
+    patch_job_approval,
+    methods=["PATCH"],
+    response_model=Dict[str, Any],
+    summary="Admin Job Approval Decision (/admin/job-approvals/{job_id}/approval)",
 )
 admin_job_approvals_router.add_api_route(
     "/{job_id}/approve",

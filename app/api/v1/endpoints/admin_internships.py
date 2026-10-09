@@ -26,6 +26,8 @@ async def list_admin_internships(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     status: Optional[str] = Query("ALL", description="Filter by status"),
+    company: Optional[str] = Query(None, description="Filter by company name"),
+    company_id: Optional[str] = Query(None, description="Filter by company ID"),
     search: Optional[str] = Query(None, description="Search keyword"),
     current_admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_database),
@@ -38,6 +40,8 @@ async def list_admin_internships(
         db=db,
         status_filter=status,
         search=search,
+        company=company,
+        company_id=company_id,
         page=page,
         page_size=page_size,
     )
@@ -63,6 +67,44 @@ async def get_admin_internship_detail(
         db=db,
         internship_id=internship_id,
     )
+
+
+@router.patch(
+    "/{internship_id}/approval",
+    status_code=status.HTTP_200_OK,
+    summary="Admin Internship Approval / Rejection Decision",
+    description="Administrator approves or rejects an internship program.",
+)
+async def patch_internship_approval(
+    internship_id: str,
+    payload: Dict[str, Any],
+    current_admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_database),
+) -> Dict[str, Any]:
+    """
+    PATCH /api/v1/admin/internships/{internship_id}/approval
+    Requires Bearer JWT token with ADMIN role.
+    """
+    target_status = str(payload.get("status", "")).strip().lower()
+    reason = payload.get("reason")
+    if target_status in ["approved", "published", "active"]:
+        return await InternshipService.approve_internship(
+            db=db,
+            current_admin=current_admin,
+            internship_id=internship_id,
+        )
+    elif target_status in ["rejected", "reject"]:
+        return await InternshipService.reject_internship(
+            db=db,
+            current_admin=current_admin,
+            internship_id=internship_id,
+            reason=reason or "Rejected by administrator",
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported status transition '{target_status}'. Expected 'approved' or 'rejected'.",
+        )
 
 
 @router.post(
@@ -130,6 +172,13 @@ admin_internship_approvals_router.add_api_route(
     response_model=AdminInternshipDetail,
     status_code=status.HTTP_200_OK,
     summary="Get Internship Detail (/admin/internship-approvals/{internship_id})",
+)
+admin_internship_approvals_router.add_api_route(
+    "/{internship_id}/approval",
+    patch_internship_approval,
+    methods=["PATCH"],
+    status_code=status.HTTP_200_OK,
+    summary="Approve/Reject Internship Decision (/admin/internship-approvals/{internship_id}/approval)",
 )
 admin_internship_approvals_router.add_api_route(
     "/{internship_id}/approve",

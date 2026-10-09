@@ -36,10 +36,16 @@ class RecruiterProfile(Base):
     tagline = Column(String(300), nullable=True)
     cin_number = Column(String(50), nullable=True)
     gst_number = Column(String(50), nullable=True)
+    company_type = Column(String(100), nullable=True)
+
+    # Geographic Location (NTR District Hub)
+    district = Column(String(100), default="NTR District", nullable=True)
+    mandal = Column(String(100), nullable=True)
+    village = Column(String(100), nullable=True)
 
     # Verification Documents
-    incorporation_document_path = Column(String(500), nullable=False)
-    recruiter_authorization_document_path = Column(String(500), nullable=False)
+    incorporation_document_path = Column(String(500), nullable=True, default="/uploads/documents/direct_onboarded_exemption.pdf")
+    recruiter_authorization_document_path = Column(String(500), nullable=True, default="/uploads/documents/direct_onboarded_exemption.pdf")
     company_logo_path = Column(String(500), nullable=True)
 
     # Registration Status & Audit
@@ -48,6 +54,8 @@ class RecruiterProfile(Base):
     submitted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     reviewed_at = Column(DateTime, nullable=True)
     reviewed_by = Column(String(150), nullable=True)
+    onboarded_by_admin_id = Column(String(50), nullable=True)
+    onboarded_by_role = Column(String(50), default="RECRUITER", nullable=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(

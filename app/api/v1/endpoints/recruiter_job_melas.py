@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +9,7 @@ from app.schemas.job_mela import (
     RecruiterJobMelaItem,
     JobMelaParticipationRequest,
     JobMelaParticipationResponse,
+    AdminJobMelaRequestItem,
 )
 from app.services.job_mela_service import JobMelaService
 
@@ -110,3 +111,47 @@ async def register_job_mela_participation_alias(
         current_user=current_user,
         payload=payload,
     )
+
+
+@router.post(
+    "/requests",
+    response_model=AdminJobMelaRequestItem,
+    status_code=status.HTTP_201_CREATED,
+    summary="Submit external Job Mela request",
+    description="Recruiter / Organization submits a proposal to host a Job Mela event.",
+)
+async def submit_job_mela_request(
+    payload: Dict[str, Any],
+    current_user: User = Depends(get_current_recruiter),
+    db: AsyncSession = Depends(get_database),
+) -> AdminJobMelaRequestItem:
+    """
+    POST /api/v1/recruiter/job-melas/requests
+    """
+    return await JobMelaService.create_job_mela_request(
+        db=db,
+        payload=payload,
+        current_user=current_user,
+    )
+
+
+@router.post(
+    "/request",
+    response_model=AdminJobMelaRequestItem,
+    status_code=status.HTTP_201_CREATED,
+    summary="Submit external Job Mela request (alias)",
+)
+async def submit_job_mela_request_alias(
+    payload: Dict[str, Any],
+    current_user: User = Depends(get_current_recruiter),
+    db: AsyncSession = Depends(get_database),
+) -> AdminJobMelaRequestItem:
+    """
+    POST /api/v1/recruiter/job-melas/request
+    """
+    return await JobMelaService.create_job_mela_request(
+        db=db,
+        payload=payload,
+        current_user=current_user,
+    )
+

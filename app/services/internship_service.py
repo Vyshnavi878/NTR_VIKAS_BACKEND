@@ -281,6 +281,8 @@ class InternshipService:
         db: AsyncSession,
         status_filter: Optional[str] = "ALL",
         search: Optional[str] = None,
+        company: Optional[str] = None,
+        company_id: Optional[str] = None,
         page: int = 1,
         page_size: int = 10,
     ) -> Dict[str, Any]:
@@ -289,6 +291,8 @@ class InternshipService:
             db=db,
             status_filter=status_filter,
             search=search,
+            company=company,
+            company_id=company_id,
             page=page,
             page_size=page_size,
         )

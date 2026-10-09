@@ -28,6 +28,8 @@ from app.api.v1.endpoints import (
     recruiter_settings,
     companies,
     admin_companies,
+    admin_recruiters,
+    admin_candidates,
     admin_profile,
     admin_settings,
     admin_audit_logs,
@@ -35,6 +37,8 @@ from app.api.v1.endpoints import (
     reports,
     admin_reports,
     admin_dashboard,
+    admin_website_content,
+    public_website_content,
 )
 
 
@@ -86,6 +90,7 @@ api_router.include_router(recruiter_job_melas.router)
 # Admin Job Melas Participation Reviews
 api_router.include_router(admin_job_melas.router)
 api_router.include_router(admin_job_melas.admin_mela_approvals_router)
+api_router.include_router(admin_job_melas.admin_mela_requests_router)
 
 # Public & Candidate Job Melas
 api_router.include_router(job_melas.router)
@@ -124,6 +129,13 @@ api_router.include_router(admin_companies.router)
 api_router.include_router(admin_companies.verification_alias_router)
 api_router.include_router(admin_companies.singular_verification_alias_router)
 
+# Admin Recruiters Governance & Management
+api_router.include_router(admin_recruiters.router)
+api_router.include_router(admin_recruiters.alias_router)
+
+# Admin Candidates Governance & Management
+api_router.include_router(admin_candidates.router)
+
 # Recruiter Interviews (/recruiter/interviews and /recruiters/interviews)
 api_router.include_router(recruiter_interviews.router)
 api_router.include_router(recruiter_interviews.recruiters_plural_router)
@@ -158,6 +170,12 @@ api_router.include_router(admin_reports.router)
 
 # Admin Command Center Dashboard (/admin/dashboard)
 api_router.include_router(admin_dashboard.router)
+
+# Admin Website Content Management (/admin/website-content)
+api_router.include_router(admin_website_content.router)
+
+# Public Website Content (/public/website-content)
+api_router.include_router(public_website_content.router)
 
 
 

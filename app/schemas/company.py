@@ -43,20 +43,35 @@ class AdminCompanyVerificationItem(BaseModel):
     id: str
     name: str
     company_name: str
-    recruiter_name: str
-    recruiter: str
-    recruiter_email: str
-    recruiter_phone: str
-    designation: str
-    industry: str
-    company_size: str
-    location: str
-    address: str
-    website: str
-    description: str
-    status: str
-    verification_status: str
-    verificationStatus: str
+    recruiter_name: str = "Corporate HR Lead"
+    recruiter: str = "Corporate HR Lead"
+    recruiter_email: Optional[str] = None
+    recruiter_phone: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    designation: Optional[str] = "Director of Talent Acquisition"
+    industry: str = "Information Technology & Services"
+    company_size: str = "100-500 employees"
+    size: str = "100-500 employees"
+    location: str = "Vijayawada, NTR District"
+    address: Optional[str] = None
+    district: Optional[str] = "NTR District"
+    mandal: Optional[str] = "Vijayawada Urban"
+    village: Optional[str] = None
+    type: Optional[str] = "Private Limited (Pvt Ltd)"
+    company_type: Optional[str] = "Private Limited (Pvt Ltd)"
+    cin: Optional[str] = None
+    cin_number: Optional[str] = None
+    gstin: Optional[str] = None
+    gst_number: Optional[str] = None
+    website: Optional[str] = None
+    description: Optional[str] = None
+    about: Optional[str] = None
+    status: str = "VERIFIED"
+    verification_status: str = "VERIFIED"
+    verificationStatus: str = "VERIFIED"
+    accountStatus: str = "ACTIVE"
+    registrationDate: Optional[str] = None
     rejection_reason: Optional[str] = None
     rejectionReason: Optional[str] = None
     submitted_at: Optional[str] = None
@@ -65,10 +80,55 @@ class AdminCompanyVerificationItem(BaseModel):
     incorporation_document_path: Optional[str] = None
     recruiter_authorization_document_path: Optional[str] = None
     company_logo_path: Optional[str] = None
+    logo: Optional[str] = None
+    logo_url: Optional[str] = None
     open_jobs: int = 0
     openJobs: int = 0
+    activeJobsCount: int = 0
+    open_internships: int = 0
+    applications_count: int = 0
+    recruiters_count: int = 1
 
     model_config = ConfigDict(from_attributes=True, extra="ignore")
+
+
+class AdminCreateCompanyRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=200, description="Company / Entity Name")
+    industry: str = Field("Information Technology & Services", min_length=2, max_length=100, description="Industry sector")
+    recruiter: Optional[str] = Field("Corporate HR Lead", max_length=150, description="Authorized Recruiter / HR Lead")
+    email: Optional[str] = Field(None, max_length=150, description="Official Corporate Email")
+    phone: Optional[str] = Field(None, max_length=30, description="Contact Phone")
+    website: Optional[str] = Field(None, max_length=255, description="Official Website")
+    district: Optional[str] = Field("NTR District", max_length=100, description="District")
+    mandal: Optional[str] = Field("Vijayawada Urban", max_length=100, description="Mandal in NTR District")
+    village: Optional[str] = Field(None, max_length=100, description="Village / Industrial Area / Ward")
+    size: Optional[str] = Field("100-500 employees", max_length=100, description="Company Size")
+    type: Optional[str] = Field("Private Limited (Pvt Ltd)", max_length=100, description="Company Type")
+    cin: Optional[str] = Field(None, max_length=50, description="Corporate CIN Number")
+    gstin: Optional[str] = Field(None, max_length=50, description="GSTIN Number")
+    about: Optional[str] = Field(None, max_length=3000, description="Company Overview & Bio")
+    description: Optional[str] = Field(None, max_length=3000, description="Alias for about")
+    verificationStatus: Optional[str] = Field("VERIFIED", description="Verification Status")
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class AdminCompanyVerificationUpdate(BaseModel):
+    status: str = Field(..., description="Target status: VERIFIED, APPROVED, REJECTED, SUSPENDED, PENDING")
+    reason: Optional[str] = Field(None, description="Explanation notes for rejection or suspension")
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class PaginatedAdminCompanyResponse(BaseModel):
+    items: List[AdminCompanyVerificationItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    verified_count: int = 0
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class CompanyVerificationDecision(BaseModel):

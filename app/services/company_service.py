@@ -12,6 +12,9 @@ from app.schemas.company import (
     PublicCompanyItem,
     PaginatedCompanyResponse,
     AdminCompanyVerificationItem,
+    AdminCreateCompanyRequest,
+    AdminCompanyVerificationUpdate,
+    PaginatedAdminCompanyResponse,
     RecruiterCompanyProfileResponse,
     RecruiterCompanyProfileUpdate,
     CompanyLogoUploadResponse,
@@ -143,63 +146,93 @@ class CompanyService:
         db: AsyncSession,
         status_filter: Optional[str] = "ALL",
         search: Optional[str] = None,
+        industry_filter: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
-    ) -> List[AdminCompanyVerificationItem]:
-        """Admin list company verification requests."""
-        items_data, _ = await CompanyRepository.get_admin_companies(
+    ) -> PaginatedAdminCompanyResponse:
+        """Admin list company verification requests with pagination, search, and metrics."""
+        items_data, total, verified_count = await CompanyRepository.get_admin_companies(
             db=db,
             status_filter=status_filter,
             search=search,
+            industry_filter=industry_filter,
             page=page,
             page_size=page_size,
         )
-        return [AdminCompanyVerificationItem(**i) for i in items_data]
+        items = [AdminCompanyVerificationItem(**i) for i in items_data]
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+
+        return PaginatedAdminCompanyResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+            verified_count=verified_count,
+        )
+
+    @classmethod
+    async def get_admin_company_by_id(
+        cls, db: AsyncSession, company_id: str
+    ) -> AdminCompanyVerificationItem:
+        """Fetch full company information for Admin View."""
+        data = await CompanyRepository.get_company_full_details(db, company_id)
+        if not data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Company with ID '{company_id}' not found.",
+            )
+        return AdminCompanyVerificationItem(**data)
+
+    @classmethod
+    async def create_admin_company(
+        cls, db: AsyncSession, current_admin: User, payload: AdminCreateCompanyRequest
+    ) -> AdminCompanyVerificationItem:
+        """Directly onboard and verify a company through Admin."""
+        created_data = await CompanyRepository.create_admin_company(
+            db=db,
+            admin_user=current_admin,
+            payload=payload,
+        )
+        return AdminCompanyVerificationItem(**created_data)
+
+    @classmethod
+    async def update_company_verification(
+        cls,
+        db: AsyncSession,
+        current_admin: User,
+        company_id: str,
+        payload: AdminCompanyVerificationUpdate,
+    ) -> AdminCompanyVerificationItem:
+        """Update company verification status (approve, reject, suspend, pending)."""
+        updated_data = await CompanyRepository.update_company_verification(
+            db=db,
+            admin_user=current_admin,
+            company_id=company_id,
+            target_status=payload.status,
+            reason=payload.reason,
+        )
+        return AdminCompanyVerificationItem(**updated_data)
 
     @classmethod
     async def approve_company(
         cls, db: AsyncSession, current_admin: User, company_id: str
     ) -> Dict[str, Any]:
         """Admin approves company verification request."""
-        profile = await CompanyRepository.get_company_by_id(db, company_id)
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Company profile not found.",
-            )
-
-        now = datetime.now(timezone.utc)
-        profile.status = "APPROVED"
-        profile.reviewed_at = now
-        profile.reviewed_by = current_admin.email
-        profile.rejection_reason = None
-        await db.commit()
-
-        # Notify recruiter
-        try:
-            if profile.user_id:
-                notif = Notification(
-                    id=f"notif-{uuid.uuid4().hex[:10]}",
-                    user_id=profile.user_id,
-                    title="Company Verification Approved",
-                    message=f"Your organization '{profile.company_name}' has been verified and approved. You can now post jobs and participate in recruitment programs.",
-                    type="COMPANY",
-                    read=False,
-                    created_at=now,
-                )
-                db.add(notif)
-                await db.commit()
-        except Exception:
-            pass
-
+        updated = await CompanyRepository.update_company_verification(
+            db=db,
+            admin_user=current_admin,
+            company_id=company_id,
+            target_status="APPROVED",
+        )
         return {
-            "id": profile.id,
-            "company_name": profile.company_name,
+            "id": updated["id"],
+            "company_name": updated["company_name"],
             "status": "APPROVED",
             "verification_status": "VERIFIED",
-            "reviewed_at": profile.reviewed_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "reviewed_by": profile.reviewed_by,
-            "message": f"Company '{profile.company_name}' has been verified and approved successfully.",
+            "reviewed_at": updated.get("reviewed_at"),
+            "reviewed_by": updated.get("reviewed_by"),
+            "message": f"Company '{updated['company_name']}' has been verified and approved successfully.",
         }
 
     @classmethod
@@ -207,53 +240,65 @@ class CompanyService:
         cls, db: AsyncSession, current_admin: User, company_id: str, reason: str
     ) -> Dict[str, Any]:
         """Admin rejects company verification request with mandatory reason."""
-        if not reason or not reason.strip():
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="A valid explanation reason is mandatory when rejecting company verification.",
-            )
-
-        profile = await CompanyRepository.get_company_by_id(db, company_id)
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Company profile not found.",
-            )
-
-        now = datetime.now(timezone.utc)
-        profile.status = "REJECTED"
-        profile.rejection_reason = reason.strip()
-        profile.reviewed_at = now
-        profile.reviewed_by = current_admin.email
-        await db.commit()
-
-        # Notify recruiter
-        try:
-            if profile.user_id:
-                notif = Notification(
-                    id=f"notif-{uuid.uuid4().hex[:10]}",
-                    user_id=profile.user_id,
-                    title="Company Verification Rejected",
-                    message=f"Your organization '{profile.company_name}' verification was rejected. Reason: {reason.strip()}",
-                    type="COMPANY",
-                    read=False,
-                    created_at=now,
-                )
-                db.add(notif)
-                await db.commit()
-        except Exception:
-            pass
-
+        updated = await CompanyRepository.update_company_verification(
+            db=db,
+            admin_user=current_admin,
+            company_id=company_id,
+            target_status="REJECTED",
+            reason=reason,
+        )
         return {
-            "id": profile.id,
-            "company_name": profile.company_name,
+            "id": updated["id"],
+            "company_name": updated["company_name"],
             "status": "REJECTED",
             "verification_status": "REJECTED",
-            "rejection_reason": profile.rejection_reason,
-            "reviewed_at": profile.reviewed_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "reviewed_by": profile.reviewed_by,
-            "message": f"Company '{profile.company_name}' verification has been rejected.",
+            "rejection_reason": updated.get("rejection_reason"),
+            "reviewed_at": updated.get("reviewed_at"),
+            "reviewed_by": updated.get("reviewed_by"),
+            "message": f"Company '{updated['company_name']}' verification has been rejected.",
         }
+
+    @classmethod
+    async def suspend_company(
+        cls, db: AsyncSession, current_admin: User, company_id: str, reason: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Admin suspends company account and recruitment privileges."""
+        updated = await CompanyRepository.update_company_verification(
+            db=db,
+            admin_user=current_admin,
+            company_id=company_id,
+            target_status="SUSPENDED",
+            reason=reason or "Company account suspended by state administrator.",
+        )
+        return {
+            "id": updated["id"],
+            "company_name": updated["company_name"],
+            "status": "SUSPENDED",
+            "verification_status": "SUSPENDED",
+            "accountStatus": "SUSPENDED",
+            "message": f"Company '{updated['company_name']}' has been suspended.",
+        }
+
+    @classmethod
+    async def get_company_documents(
+        cls, db: AsyncSession, company_id: str
+    ) -> List[Dict[str, Any]]:
+        """Retrieve verification compliance documents for a company."""
+        return await CompanyRepository.get_company_documents(db, company_id)
+
+    @classmethod
+    async def export_company_dossier(
+        cls, db: AsyncSession, company_id: str
+    ) -> Dict[str, Any]:
+        """Export comprehensive dossier data for a single company."""
+        data = await CompanyRepository.get_company_full_details(db, company_id)
+        if not data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Company with ID '{company_id}' not found.",
+            )
+        return data
+
 
     @classmethod
     def _build_profile_response(cls, profile) -> RecruiterCompanyProfileResponse:

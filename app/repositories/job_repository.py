@@ -251,6 +251,8 @@ class JobRepository:
         status_filter: Optional[str] = "ALL",
         department: Optional[str] = None,
         search: Optional[str] = None,
+        company: Optional[str] = None,
+        company_id: Optional[str] = None,
         page: int = 1,
         page_size: int = 10,
     ) -> Tuple[List[Dict[str, Any]], int]:
@@ -263,6 +265,24 @@ class JobRepository:
 
         if department and department.strip() and department.upper() != "ALL":
             conds.append(Job.department == department.strip())
+
+        if company and company.strip() and company.strip().upper() != "ALL":
+            clean_comp = company.strip()
+            conds.append(
+                or_(
+                    Job.company_name.ilike(f"%{clean_comp}%"),
+                    RecruiterProfile.company_name.ilike(f"%{clean_comp}%"),
+                )
+            )
+
+        if company_id and company_id.strip() and company_id.strip().upper() != "ALL":
+            clean_id = company_id.strip()
+            conds.append(
+                or_(
+                    Job.company_id == clean_id,
+                    Job.recruiter_id == clean_id,
+                )
+            )
 
         if search and search.strip():
             q = f"%{search.strip()}%"

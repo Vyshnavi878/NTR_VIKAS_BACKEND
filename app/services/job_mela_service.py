@@ -1,8 +1,12 @@
+import os
 import uuid
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
 
 from app.models.user import User
 from app.repositories.job_mela_repository import JobMelaRepository
@@ -22,6 +26,14 @@ from app.schemas.job_mela import (
     CandidateJobMelaRegistrationItem,
     CandidateJobMelaApplyCompanyRequest,
     CandidateJobMelaApplyCompanyResponse,
+    AdminJobMelaItem,
+    AdminCreateJobMelaRequest,
+    AdminUpdateJobMelaStatusRequest,
+    AdminJobMelaRequestItem,
+    AdminApproveMelaRequest,
+    AdminRejectMelaRequest,
+    AdminJobMelaMetricsResponse,
+    AdminJobMelaCompanyItem,
 )
 
 
@@ -734,4 +746,353 @@ class JobMelaService:
             applied_date=today_formatted,
             message="Application submitted successfully for Job Mela interview.",
         )
+
+    # ── ADMIN SPECIFIC SERVICE METHODS ───────────────────────────────────────
+
+    @classmethod
+    async def get_admin_job_melas(
+        cls,
+        db: AsyncSession,
+        status_filter: Optional[str] = "ALL",
+        search: Optional[str] = None,
+    ) -> List[AdminJobMelaItem]:
+        """Fetch all Admin-created Job Melas with real metrics and participating companies."""
+        melas = await JobMelaRepository.get_admin_job_melas(
+            db=db,
+            status_filter=status_filter,
+            search=search,
+        )
+        return [AdminJobMelaItem(**m) for m in melas]
+
+    @classmethod
+    async def get_admin_mela_by_id(
+        cls,
+        db: AsyncSession,
+        mela_id: str,
+    ) -> AdminJobMelaItem:
+        """Fetch single Admin Job Mela by ID."""
+        mela = await JobMelaRepository.get_admin_mela_by_id(db=db, mela_id=mela_id)
+        if not mela:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job Mela '{mela_id}' not found.",
+            )
+        return AdminJobMelaItem(**mela)
+
+    @classmethod
+    async def create_admin_job_mela(
+        cls,
+        db: AsyncSession,
+        payload: AdminCreateJobMelaRequest,
+        current_admin: User,
+    ) -> AdminJobMelaItem:
+        """Admin creates a new Job Mela (for NTR Vikasa or directly for client)."""
+        if not payload.title or not payload.title.strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Event title is required.",
+            )
+        if not payload.venue or not payload.venue.strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Event venue is required.",
+            )
+        if payload.maxCapacity and payload.maxCapacity <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Event candidate capacity must be a positive number.",
+            )
+
+        data = payload.model_dump()
+        created = await JobMelaRepository.create_admin_job_mela(
+            db=db,
+            data=data,
+            current_admin=current_admin,
+        )
+        return AdminJobMelaItem(**created)
+
+    @classmethod
+    async def update_admin_job_mela(
+        cls,
+        db: AsyncSession,
+        mela_id: str,
+        payload: Dict[str, Any],
+        current_admin: User,
+    ) -> AdminJobMelaItem:
+        """Update existing Admin Job Mela event details."""
+        updated = await JobMelaRepository.update_admin_job_mela(
+            db=db,
+            mela_id=mela_id,
+            data=payload,
+        )
+        if not updated:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job Mela '{mela_id}' not found.",
+            )
+        return AdminJobMelaItem(**updated)
+
+    @classmethod
+    async def update_mela_status(
+        cls,
+        db: AsyncSession,
+        mela_id: str,
+        new_status: str,
+        current_admin: User,
+    ) -> AdminJobMelaItem:
+        """Update status of a Job Mela event."""
+        updated = await JobMelaRepository.update_mela_status(
+            db=db,
+            mela_id=mela_id,
+            new_status=new_status,
+        )
+        if not updated:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job Mela '{mela_id}' not found.",
+            )
+        return AdminJobMelaItem(**updated)
+
+    @classmethod
+    async def add_company_to_mela(
+        cls,
+        db: AsyncSession,
+        mela_id: str,
+        payload: Dict[str, Any],
+        current_admin: User,
+    ) -> AdminJobMelaCompanyItem:
+        """Add participating company to a Job Mela."""
+        existing_mela = await JobMelaRepository.get_admin_mela_by_id(db=db, mela_id=mela_id)
+        if not existing_mela:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job Mela '{mela_id}' not found.",
+            )
+
+        comp = await JobMelaRepository.add_company_to_mela(
+            db=db,
+            mela_id=existing_mela["id"],
+            comp_data=payload,
+        )
+        return AdminJobMelaCompanyItem(**comp)
+
+    @classmethod
+    async def update_company_in_mela(
+        cls,
+        db: AsyncSession,
+        mela_id: str,
+        company_entry_id: str,
+        payload: Dict[str, Any],
+        current_admin: User,
+    ) -> AdminJobMelaCompanyItem:
+        """Update participating company in a Job Mela."""
+        comp = await JobMelaRepository.update_company_in_mela(
+            db=db,
+            mela_id=mela_id,
+            company_entry_id=company_entry_id,
+            comp_data=payload,
+        )
+        if not comp:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Participating company entry not found.",
+            )
+        return AdminJobMelaCompanyItem(**comp)
+
+    @classmethod
+    async def remove_company_from_mela(
+        cls,
+        db: AsyncSession,
+        mela_id: str,
+        company_entry_id: str,
+        current_admin: User,
+    ) -> Dict[str, Any]:
+        """Remove participating company from a Job Mela."""
+        success = await JobMelaRepository.remove_company_from_mela(
+            db=db,
+            mela_id=mela_id,
+            company_entry_id=company_entry_id,
+        )
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Participating company entry not found.",
+            )
+        return {"success": True, "message": "Company removed from Job Mela."}
+
+    @classmethod
+    async def get_job_mela_requests(
+        cls,
+        db: AsyncSession,
+        status_filter: Optional[str] = "ALL",
+        company_filter: Optional[str] = "ALL",
+        search: Optional[str] = None,
+    ) -> List[AdminJobMelaRequestItem]:
+        """Fetch all Job Mela requests with status and company filtering."""
+        requests = await JobMelaRepository.get_job_mela_requests(
+            db=db,
+            status_filter=status_filter,
+            company_filter=company_filter,
+            search=search,
+        )
+        return [AdminJobMelaRequestItem(**r) for r in requests]
+
+    @classmethod
+    async def get_job_mela_request_by_id(
+        cls,
+        db: AsyncSession,
+        request_id: str,
+    ) -> AdminJobMelaRequestItem:
+        """Fetch details of a specific Job Mela request."""
+        req = await JobMelaRepository.get_job_mela_request_by_id(db=db, request_id=request_id)
+        if not req:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job Mela request '{request_id}' not found.",
+            )
+        return AdminJobMelaRequestItem(**req)
+
+    @classmethod
+    async def approve_job_mela_request(
+        cls,
+        db: AsyncSession,
+        request_id: str,
+        current_admin: User,
+        payload: Optional[AdminApproveMelaRequest] = None,
+    ) -> Dict[str, Any]:
+        """Admin approves Job Mela request and activates/creates event."""
+        notes = payload.reviewNotes if payload else None
+        auto_pub = payload.autoPublish if payload else True
+        try:
+            return await JobMelaRepository.approve_job_mela_request(
+                db=db,
+                request_id=request_id,
+                reviewer_user=current_admin,
+                notes=notes,
+                auto_publish=auto_pub,
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(e),
+            )
+
+    @classmethod
+    async def reject_job_mela_request(
+        cls,
+        db: AsyncSession,
+        request_id: str,
+        current_admin: User,
+        payload: Optional[AdminRejectMelaRequest] = None,
+    ) -> Dict[str, Any]:
+        """Admin rejects Job Mela request with reason."""
+        reason = (payload.rejection_reason or payload.reason if payload else None) or "Does not meet requirements."
+        try:
+            return await JobMelaRepository.reject_job_mela_request(
+                db=db,
+                request_id=request_id,
+                reviewer_user=current_admin,
+                reason=reason,
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(e),
+            )
+
+    @classmethod
+    async def get_job_mela_metrics(cls, db: AsyncSession) -> AdminJobMelaMetricsResponse:
+        """Calculate real database aggregates for Admin overview."""
+        metrics = await JobMelaRepository.get_job_mela_metrics(db=db)
+        return AdminJobMelaMetricsResponse(**metrics)
+
+    @classmethod
+    async def get_mela_registrations_admin(
+        cls,
+        db: AsyncSession,
+        mela_id: str,
+        search: Optional[str] = None,
+        status_filter: Optional[str] = "ALL",
+    ) -> List[Dict[str, Any]]:
+        """Fetch candidates registered for a specific Job Mela for admin inspection."""
+        return await JobMelaRepository.get_mela_registrations_admin(
+            db=db,
+            mela_id=mela_id,
+            search=search,
+            status_filter=status_filter,
+        )
+
+    @classmethod
+    async def upload_poster(
+        cls,
+        upload_file: UploadFile,
+    ) -> Dict[str, Any]:
+        """Validate, store and return URL for official Job Mela event poster flyer."""
+        if not upload_file or not upload_file.filename:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Poster image file is required.",
+            )
+
+        content = await upload_file.read()
+        file_size = len(content)
+
+        if file_size == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Uploaded poster file is empty.",
+            )
+
+        MAX_POSTER_SIZE = 10 * 1024 * 1024  # 10MB
+        if file_size > MAX_POSTER_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Poster file exceeds maximum limit of 10MB.",
+            )
+
+        content_type = (upload_file.content_type or "").lower().strip()
+        filename_ext = Path(upload_file.filename).suffix.lower()
+
+        allowed_exts = {".jpg", ".jpeg", ".png", ".webp"}
+        allowed_mimes = {"image/jpeg", "image/png", "image/webp"}
+
+        if content_type not in allowed_mimes and filename_ext not in allowed_exts:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Unsupported image format. Allowed formats: JPG, PNG, WEBP.",
+            )
+
+        ext = filename_ext if filename_ext in allowed_exts else ".jpg"
+        safe_filename = f"mela_poster_{uuid.uuid4().hex[:12]}{ext}"
+        target_dir = os.path.join(settings.UPLOAD_DIR, "posters")
+        os.makedirs(target_dir, exist_ok=True)
+        file_path = os.path.join(target_dir, safe_filename)
+
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        relative_url = f"/uploads/posters/{safe_filename}"
+        return {
+            "url": relative_url,
+            "filename": safe_filename,
+            "size": file_size,
+            "message": "Poster uploaded successfully."
+        }
+
+    @classmethod
+    async def create_job_mela_request(
+        cls,
+        db: AsyncSession,
+        payload: Dict[str, Any],
+        current_user: Optional[User] = None,
+    ) -> AdminJobMelaRequestItem:
+        """Create external or recruiter Job Mela request."""
+        req = await JobMelaRepository.create_job_mela_request(
+            db=db,
+            data=payload,
+            current_user=current_user,
+        )
+        return AdminJobMelaRequestItem(**req)
+
+
 

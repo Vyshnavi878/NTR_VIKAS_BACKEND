@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -536,6 +537,8 @@ class JobService:
         status_filter: Optional[str] = "ALL",
         department: Optional[str] = None,
         search: Optional[str] = None,
+        company: Optional[str] = None,
+        company_id: Optional[str] = None,
         page: int = 1,
         page_size: int = 10,
     ) -> PaginatedJobResponse:
@@ -545,6 +548,8 @@ class JobService:
             status_filter=status_filter,
             department=department,
             search=search,
+            company=company,
+            company_id=company_id,
             page=page,
             page_size=page_size,
         )

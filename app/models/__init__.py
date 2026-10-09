@@ -18,7 +18,13 @@ from app.models.notification import Notification
 from app.models.job import Job, JobSkill
 from app.models.interview import Interview
 from app.models.recruiter_support import RecruiterSupportRequest
-from app.models.job_mela import JobMela, JobMelaCompanyParticipation
+from app.models.job_mela import (
+    JobMela,
+    JobMelaCompanyParticipation,
+    JobMelaJobOpening,
+    JobMelaRequest,
+    JobMelaRegistration,
+)
 from app.models.internship import Internship, InternshipApplication, AuditLog
 from app.models.company_team import (
     CompanyMember,
@@ -28,6 +34,13 @@ from app.models.company_team import (
 from app.models.admin_profile import AdminProfile
 from app.models.platform_settings import PlatformSettings
 from app.models.report import Report
+
+from app.models.website_content import (
+    GalleryPhoto,
+    GalleryVideo,
+    PressArticle,
+    WebsiteSectionHeader,
+)
 
 __all__ = [
     "User",
@@ -58,9 +71,16 @@ __all__ = [
     "RecruiterSupportRequest",
     "JobMela",
     "JobMelaCompanyParticipation",
+    "JobMelaJobOpening",
+    "JobMelaRequest",
+    "JobMelaRegistration",
     "Internship",
     "InternshipApplication",
     "AuditLog",
+    "GalleryPhoto",
+    "GalleryVideo",
+    "PressArticle",
+    "WebsiteSectionHeader",
 ]
 
 

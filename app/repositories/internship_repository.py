@@ -218,6 +218,8 @@ class InternshipRepository:
         db: AsyncSession,
         status_filter: Optional[str] = "ALL",
         search: Optional[str] = None,
+        company: Optional[str] = None,
+        company_id: Optional[str] = None,
         page: int = 1,
         page_size: int = 10,
     ) -> Tuple[List[Dict[str, Any]], int]:
@@ -226,6 +228,12 @@ class InternshipRepository:
 
         if status_filter and status_filter.upper() != "ALL":
             conds.append(Internship.status == status_filter.upper())
+
+        if company and company.strip() and company.strip().upper() != "ALL":
+            conds.append(RecruiterProfile.company_name.ilike(f"%{company.strip()}%"))
+
+        if company_id and company_id.strip() and company_id.strip().upper() != "ALL":
+            conds.append(Internship.company_id == company_id.strip())
 
         if search and search.strip():
             q = f"%{search.strip()}%"

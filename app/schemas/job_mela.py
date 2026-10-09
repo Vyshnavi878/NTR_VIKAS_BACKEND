@@ -245,3 +245,150 @@ class CandidateJobMelaApplyCompanyResponse(BaseModel):
     applied_date: str
     message: str = "Application submitted successfully for Job Mela interview."
 
+
+# ── Admin Job Mela Schemas ──────────────────────────────────────────────────
+
+class AdminJobMelaCompanyItem(BaseModel):
+    id: str
+    companyId: Optional[str] = None
+    company: str
+    recruiter: Optional[str] = None
+    position: Optional[str] = None
+    qualification: Optional[str] = None
+    experience: Optional[str] = None
+    salary: Optional[str] = None
+    vacancies: int = 15
+    applications: int = 0
+    location: Optional[str] = None
+    notes: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminJobMelaItem(BaseModel):
+    id: str
+    mela_number: Optional[str] = None
+    event: str
+    title: str
+    description: Optional[str] = None
+    date: str
+    startTime: Optional[str] = "09:00 AM"
+    endTime: Optional[str] = "05:30 PM"
+    time: Optional[str] = "09:00 AM - 05:30 PM"
+    regStartDate: Optional[str] = None
+    regEndDate: Optional[str] = None
+    maxCapacity: Optional[int] = 5000
+    capacity: Optional[int] = 5000
+    venue: str
+    city: str
+    district: Optional[str] = None
+    state: Optional[str] = "Andhra Pradesh"
+    location: Optional[str] = None
+    address: Optional[str] = None
+    organizer: Optional[str] = None
+    client: Optional[str] = None
+    createdForClient: Optional[bool] = False
+    createdByAdmin: bool = True
+    status: str
+    companiesCount: int = 0
+    vacanciesCount: int = 0
+    registeredCandidatesCount: int = 0
+    banner: Optional[str] = None
+    posterImage: Optional[str] = None
+    image: Optional[str] = None
+    flyer_url: Optional[str] = None
+    participatingCompanies: List[AdminJobMelaCompanyItem] = []
+    eligibleMandals: Optional[List[str]] = None
+    eligibleVillages: Optional[str] = None
+    eligibleQualifications: Optional[List[str]] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminCreateJobMelaRequest(BaseModel):
+    title: str
+    description: Optional[str] = None
+    date: str
+    startTime: Optional[str] = "09:00"
+    endTime: Optional[str] = "18:00"
+    venue: str
+    address: Optional[str] = None
+    city: str
+    state: Optional[str] = "Andhra Pradesh"
+    regStartDate: Optional[str] = None
+    regEndDate: Optional[str] = None
+    maxCapacity: Optional[int] = 3500
+    createdForClient: Optional[bool] = False
+    client: Optional[str] = None
+    clientId: Optional[str] = None
+    clientContactPerson: Optional[str] = None
+    clientContactPhone: Optional[str] = None
+    eligibleMandals: Optional[List[str]] = None
+    eligibleVillages: Optional[str] = None
+    eligibleQualifications: Optional[List[str]] = None
+    banner: Optional[str] = None
+    posterImage: Optional[str] = None
+    image: Optional[str] = None
+    status: Optional[str] = "APPROVED"
+    participatingCompanies: Optional[List[dict]] = []
+
+
+class AdminUpdateJobMelaStatusRequest(BaseModel):
+    status: str
+
+
+class AdminJobMelaRequestItem(BaseModel):
+    id: str
+    request_number: Optional[str] = None
+    event: str
+    title: str
+    description: Optional[str] = None
+    organizer: str
+    company: Optional[str] = None
+    requestingOrganization: Optional[str] = None
+    date: str
+    time: Optional[str] = "09:00 AM - 05:00 PM"
+    venue: str
+    location: Optional[str] = None
+    city: str
+    state: Optional[str] = "Andhra Pradesh"
+    address: Optional[str] = None
+    requestDate: str
+    createdAt: Optional[str] = None
+    status: str
+    capacity: Optional[int] = 2000
+    maxCapacity: Optional[int] = 2000
+    vacancies: Optional[int] = 500
+    contactPerson: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    rejectionReason: Optional[str] = None
+    linkedJobMelaId: Optional[str] = None
+    participatingCompanies: Optional[List[dict]] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminApproveMelaRequest(BaseModel):
+    reviewNotes: Optional[str] = None
+    autoPublish: Optional[bool] = True
+
+
+class AdminRejectMelaRequest(BaseModel):
+    rejection_reason: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class AdminJobMelaMetricsResponse(BaseModel):
+    totalRegisteredCandidates: int = 0
+    totalEventCapacity: int = 0
+    turnoutFillRate: int = 0
+    totalEvents: int = 0
+    totalAdminMelas: int = 0
+    totalRequests: int = 0
+    pendingRequests: int = 0
+    approvedRequests: int = 0
+    rejectedRequests: int = 0
+    totalVacancies: int = 0
+
+

@@ -20,15 +20,26 @@ class CandidateProfile(Base):
     name = Column(String(150), nullable=False)
     phone = Column(String(20), index=True, nullable=True)
     aadhaar_number = Column(String(20), unique=True, index=True, nullable=False)
+    aadhaar_hash = Column(String(64), index=True, nullable=True)
+    gender = Column(String(20), default="Male", nullable=True)
     district = Column(String(100), default="NTR District")
     mandal = Column(String(100), default="Vijayawada Urban")
     village = Column(String(100), nullable=True)
     qualification_level = Column(String(50), default="10TH")
     reference_admin = Column(String(150), nullable=True)
+    custom_referrer = Column(String(200), nullable=True)
+    onboarded_by_admin_id = Column(String(50), nullable=True)
     headline = Column(String(255), nullable=True)
     bio = Column(Text, nullable=True)
     profile_completion = Column(Integer, default=35)
     verified = Column(Boolean, default=True)
+
+    # Placement Governance
+    placement_status = Column(String(50), default="NOT_PLACED", index=True, nullable=True)
+    placed_company = Column(String(200), nullable=True)
+    placed_role = Column(String(150), nullable=True)
+    placed_salary = Column(String(100), nullable=True)
+    placed_date = Column(String(50), nullable=True)
 
     # Personal / Social URLs & Location
     location = Column(String(200), nullable=True)
