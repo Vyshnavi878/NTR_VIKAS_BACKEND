@@ -68,3 +68,5 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
 async def health_check():
     """Basic health check endpoint returning {status: ok}."""
     return {"status": "ok"}
+
+# Uvicorn reload trigger

@@ -40,6 +40,11 @@ from app.models.website_content import (
     GalleryVideo,
     PressArticle,
     WebsiteSectionHeader,
+    JobPageSetting,
+    JobLocation,
+    AboutUsSetting,
+    JobMelaPageSetting,
+    SkillCmsSection,
 )
 
 __all__ = [
@@ -81,6 +86,12 @@ __all__ = [
     "GalleryVideo",
     "PressArticle",
     "WebsiteSectionHeader",
+    "JobPageSetting",
+    "JobLocation",
+    "AboutUsSetting",
+    "JobMelaPageSetting",
+    "SkillCmsSection",
 ]
+
 
 

@@ -39,6 +39,7 @@ from app.api.v1.endpoints import (
     admin_dashboard,
     admin_website_content,
     public_website_content,
+    skills_cms,
 )
 
 
@@ -176,6 +177,99 @@ api_router.include_router(admin_website_content.router)
 
 # Public Website Content (/public/website-content)
 api_router.include_router(public_website_content.router)
+
+# Skill Development Website Content Management (/cms/skills and /admin/cms/skills)
+api_router.include_router(skills_cms.public_router)
+api_router.include_router(skills_cms.public_wc_router)
+api_router.include_router(skills_cms.admin_router)
+api_router.include_router(skills_cms.admin_wc_router)
+
+# Direct alias for /public/news-press as specified in system integration requirements
+from typing import Optional, List
+from fastapi import Query, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.deps import get_database
+from app.schemas.website_content import (
+    PressArticleResponse,
+    JobsPageConfigResponse,
+    PublicJobLocationsResponse,
+    AboutUsConfigResponse,
+    JobMelaHeroResponse,
+)
+from app.services.website_content_service import WebsiteContentService
+
+@api_router.get(
+    "/public/news-press",
+    response_model=List[PressArticleResponse],
+    tags=["Public Website Content"],
+    summary="Direct public press clippings endpoint",
+)
+async def get_direct_public_news_press(
+    category: Optional[str] = Query(None, description="Filter by category"),
+    search: Optional[str] = Query(None, description="Search by title or summary"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=200),
+    db: AsyncSession = Depends(get_database),
+):
+    items, _ = await WebsiteContentService.list_press_articles(
+        db=db,
+        category=category,
+        search=search,
+        is_published=True,
+        page=page,
+        page_size=page_size,
+    )
+    return items
+
+
+@api_router.get(
+    "/public/job-locations",
+    response_model=PublicJobLocationsResponse,
+    tags=["Public Website Content"],
+    summary="Direct public active job filter locations endpoint",
+)
+async def get_direct_public_job_locations(
+    db: AsyncSession = Depends(get_database),
+):
+    return await WebsiteContentService.get_public_job_locations(db)
+
+
+@api_router.get(
+    "/public/jobs-page",
+    response_model=JobsPageConfigResponse,
+    tags=["Public Website Content"],
+    summary="Direct public Jobs page configuration endpoint",
+)
+async def get_direct_public_jobs_page(
+    db: AsyncSession = Depends(get_database),
+):
+    return await WebsiteContentService.get_jobs_page_config(db, include_all_locations=False)
+
+
+@api_router.get(
+    "/public/about-us",
+    response_model=AboutUsConfigResponse,
+    tags=["Public Website Content"],
+    summary="Direct public About Us configuration endpoint",
+)
+async def get_direct_public_about_us(
+    db: AsyncSession = Depends(get_database),
+):
+    return await WebsiteContentService.get_about_us_config(db=db, is_public=True)
+
+
+@api_router.get(
+    "/public/job-melas/hero",
+    response_model=JobMelaHeroResponse,
+    tags=["Public Website Content"],
+    summary="Direct public Job Melas hero configuration endpoint",
+)
+async def get_direct_public_job_melas_hero(
+    db: AsyncSession = Depends(get_database),
+):
+    return await WebsiteContentService.get_job_mela_hero(db=db)
+
+
 
 
 

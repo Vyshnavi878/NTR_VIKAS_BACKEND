@@ -116,3 +116,144 @@ class WebsiteSectionHeader(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class JobPageSetting(Base):
+    """Database model for persistent Jobs Page configuration (Hero, Search Placeholders, Popular Keywords)."""
+    __tablename__ = "job_page_settings"
+
+    id = Column(String(50), primary_key=True, default="default")
+    hero_badge = Column(String(255), nullable=False, default="Corporate Recruitment Portal")
+    hero_heading = Column(String(255), nullable=False, default="Find Your Dream Job in Andhra Pradesh & India")
+    hero_subtitle = Column(Text, nullable=False, default="Explore 2,450+ verified corporate job openings with zero placement fees")
+    search_placeholder = Column(String(255), nullable=False, default="Job title, skills (Python, React...), or company...")
+    location_placeholder = Column(String(255), nullable=False, default="All Locations (All India)")
+    popular_searches = Column(Text, nullable=False, default='["Python Developer", "React JS", "Data Analyst", "Fresher Jobs", "Hybrid Work", "FastAPI"]')
+    updated_by = Column(String(150), nullable=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class JobLocation(Base):
+    """Database model for supported Indian States and Union Territories for job filtering."""
+    __tablename__ = "job_locations"
+
+    id = Column(String(50), primary_key=True)
+    name = Column(String(150), unique=True, nullable=False, index=True)
+    state_ut_type = Column(String(50), nullable=False, default="state", index=True)  # "state" or "union_territory"
+    display_order = Column(Integer, nullable=False, default=0, index=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AboutUsSetting(Base):
+    """Database model for persistent About Us Page configuration (Hero, 3 Principles, Team, Leadership, Partners)."""
+    __tablename__ = "about_us_settings"
+
+    id = Column(String(50), primary_key=True, default="default")
+    hero_badge = Column(String(255), nullable=False, default="Our Mission & Impact")
+    hero_heading = Column(String(255), nullable=False, default="Bridging Talent with Opportunity Across India")
+    hero_description = Column(Text, nullable=False)
+
+    wwsf_heading = Column(String(255), nullable=False, default="What We Stand For")
+    wwsf_description = Column(Text, nullable=False)
+    wwsf_cards = Column(Text, nullable=False)  # JSON serialized list of 3 principle cards
+
+    team_badge = Column(String(255), nullable=False, default="Our Leadership & Team")
+    team_heading = Column(String(255), nullable=False, default="Our Team")
+    team_description = Column(Text, nullable=False)
+    team_members = Column(Text, nullable=False)  # JSON serialized list of team members
+
+    leadership_badge = Column(String(255), nullable=False, default="LEADERSHIP")
+    leadership_heading = Column(String(255), nullable=False, default="Leadership Messages")
+    leadership_description = Column(Text, nullable=False, default="Words from our esteemed leaders who guide our mission")
+    leadership_messages = Column(Text, nullable=False)  # JSON serialized list of leadership statements
+
+    partners_heading = Column(String(255), nullable=False, default="OUR INDUSTRY & ACADEMIC TRAINING PARTNERS")
+    partners_description = Column(Text, nullable=False)
+    partners_list = Column(Text, nullable=False)  # JSON serialized list of partners with active & order
+
+    stats_data = Column(Text, nullable=True)  # JSON serialized list of 4 platform stats
+    updated_by = Column(String(150), nullable=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class JobMelaPageSetting(Base):
+    """Database model for persistent Job Melas Page configuration (Hero badge, heading, description)."""
+    __tablename__ = "job_mela_page_settings"
+
+    id = Column(String(50), primary_key=True, default="default")
+    hero_badge = Column(String(255), nullable=False, default="Nationwide Recruitment Drives")
+    hero_heading = Column(String(255), nullable=False, default="Mega Job Melas & Career Fairs")
+    hero_description = Column(
+        Text,
+        nullable=False,
+        default=(
+            "Attend on-ground walk-in interview sessions with 100+ hiring companies, "
+            "receive free career guidance, and get spot job offer letters. Free registration for all job seekers."
+        ),
+    )
+    updated_by = Column(String(150), nullable=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class SkillCmsSection(Base):
+    """Database model for persistent Skill Development CMS sections."""
+    __tablename__ = "skill_cms_sections"
+
+    section_key = Column(String(50), primary_key=True)  # "skills_hero", "skills_highlights", "skills_mission", "skills_pathway", "skills_advantages", "skills_programs"
+    title = Column(String(255), nullable=True)
+    content = Column(Text, nullable=False)  # JSON-encoded structured content
+    updated_by = Column(String(150), nullable=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+

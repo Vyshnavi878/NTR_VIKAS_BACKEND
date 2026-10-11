@@ -22,11 +22,17 @@ from app.models.recruiter import RecruiterProfile
 from app.models.job import Job
 from app.models.interview import Interview
 from app.models.admin_profile import AdminProfile
+import re
 from app.models.website_content import (
     GalleryPhoto,
     GalleryVideo,
     PressArticle,
     WebsiteSectionHeader,
+    JobPageSetting,
+    JobLocation,
+    AboutUsSetting,
+    JobMelaPageSetting,
+    SkillCmsSection,
 )
 from app.core.security import hash_password
 
@@ -1346,7 +1352,352 @@ async def seed_website_content() -> None:
                 subtitle="Read authentic press coverage, newspaper clippings, and administrative reports of NTR VIKASA Mega Job Melas across Andhra Pradesh.",
             ))
 
+        # 5. Jobs Page Settings
+        res_jps = await session.execute(select(JobPageSetting).where(JobPageSetting.id == "default"))
+        if not res_jps.scalar_one_or_none():
+            session.add(JobPageSetting(
+                id="default",
+                hero_badge="Corporate Recruitment Portal",
+                hero_heading="Find Your Dream Job in Andhra Pradesh & India",
+                hero_subtitle="Explore 2,450+ verified corporate job openings with zero placement fees",
+                search_placeholder="Job title, skills (Python, React...), or company...",
+                location_placeholder="All Locations (All India)",
+                popular_searches=json.dumps([
+                    "Python Developer",
+                    "React JS",
+                    "Data Analyst",
+                    "Fresher Jobs",
+                    "Hybrid Work",
+                    "FastAPI",
+                ]),
+                updated_by="System Seed",
+            ))
+
+        # 6. Job Locations (28 States + 8 Union Territories)
+        indian_states = [
+            "Andhra Pradesh",
+            "Arunachal Pradesh",
+            "Assam",
+            "Bihar",
+            "Chhattisgarh",
+            "Goa",
+            "Gujarat",
+            "Haryana",
+            "Himachal Pradesh",
+            "Jharkhand",
+            "Karnataka",
+            "Kerala",
+            "Madhya Pradesh",
+            "Maharashtra",
+            "Manipur",
+            "Meghalaya",
+            "Mizoram",
+            "Nagaland",
+            "Odisha",
+            "Punjab",
+            "Rajasthan",
+            "Sikkim",
+            "Tamil Nadu",
+            "Telangana",
+            "Tripura",
+            "Uttar Pradesh",
+            "Uttarakhand",
+            "West Bengal",
+        ]
+        indian_uts = [
+            "Andaman and Nicobar Islands",
+            "Chandigarh",
+            "Dadra and Nagar Haveli and Daman and Diu",
+            "Delhi",
+            "Jammu and Kashmir",
+            "Ladakh",
+            "Lakshadweep",
+            "Puducherry",
+        ]
+
+        order = 1
+        for st in indian_states:
+            res_loc = await session.execute(select(JobLocation).where(JobLocation.name == st))
+            if not res_loc.scalar_one_or_none():
+                loc_id = f"loc-{re.sub(r'[^a-z0-9]+', '-', st.lower()).strip('-')}"
+                session.add(JobLocation(
+                    id=loc_id,
+                    name=st,
+                    state_ut_type="state",
+                    display_order=order,
+                    is_active=True,
+                ))
+            order += 1
+
+        for ut in indian_uts:
+            res_loc = await session.execute(select(JobLocation).where(JobLocation.name == ut))
+            if not res_loc.scalar_one_or_none():
+                loc_id = f"loc-{re.sub(r'[^a-z0-9]+', '-', ut.lower()).strip('-')}"
+                session.add(JobLocation(
+                    id=loc_id,
+                    name=ut,
+                    state_ut_type="union_territory",
+                    display_order=order,
+                    is_active=True,
+                ))
+            order += 1
+
+        # 7. About Us Settings (Hero, Principles, Team, Leadership, Partners)
+        res_about = await session.execute(select(AboutUsSetting).where(AboutUsSetting.id == "default"))
+        if not res_about.scalar_one_or_none():
+            session.add(AboutUsSetting(
+                id="default",
+                hero_badge="Our Mission & Impact",
+                hero_heading="Bridging Talent with Opportunity Across India",
+                hero_description="NTR VIKASA Job Portal was founded on a simple principle: every candidate deserves fair, direct access to employment opportunities without scam fees, opaque processes, or dead ends.",
+                wwsf_heading="What We Stand For",
+                wwsf_description="Guiding principles that power our candidate-first architecture and employer verification policies.",
+                wwsf_cards=json.dumps([
+                    {
+                        "id": "wwsf-1",
+                        "icon": "ShieldCheck",
+                        "title": "100% Verified Quality",
+                        "desc": "Every single recruiter profile and job listing is reviewed to eliminate illegitimate recruiters and recruitment charges.",
+                        "color": "primary",
+                    },
+                    {
+                        "id": "wwsf-2",
+                        "icon": "Target",
+                        "title": "Transparent Application Lifecycle",
+                        "desc": "Candidates receive live feedback across all 20 standard recruitment milestones from applied to interview to offer letters.",
+                        "color": "success",
+                    },
+                    {
+                        "id": "wwsf-3",
+                        "icon": "Users",
+                        "title": "Inclusive Mega Job Melas",
+                        "desc": "Bringing top corporate opportunities directly to Tier-2, Tier-3 and rural graduate communities through walk-in physical fairs.",
+                        "color": "warning",
+                    },
+                ]),
+                team_badge="Our Leadership & Team",
+                team_heading="Our Team",
+                team_description="Experienced leaders with backgrounds across technology, public policy, and corporate recruitment.",
+                team_members=json.dumps([
+                    {
+                        "id": "team-1",
+                        "name": "Dr. Ramesh Sundaram",
+                        "role": "Founder & Managing Director",
+                        "organization": "NTR Vikasa",
+                        "bio": "Former National Employment Council advisor with 20+ years driving talent mobility initiatives.",
+                        "image": None,
+                    },
+                    {
+                        "id": "team-2",
+                        "name": "Ananya Deshmukh",
+                        "role": "Chief Technology Officer",
+                        "organization": "NTR Vikasa",
+                        "bio": "Ex-Google & Flipkart engineering leader passionate about AI-driven career matching.",
+                        "image": None,
+                    },
+                    {
+                        "id": "team-3",
+                        "name": "Siddharth Nair",
+                        "role": "Head of Employer Partnerships",
+                        "organization": "NTR Vikasa",
+                        "bio": "Built recruitment pipelines across 500+ Indian corporate enterprises and SME networks.",
+                        "image": None,
+                    },
+                    {
+                        "id": "team-4",
+                        "name": "Meera Sengupta",
+                        "role": "Director of Diversity & Job Melas",
+                        "organization": "NTR Vikasa",
+                        "bio": "Pioneered inclusive job fairs for women, PwD, and tier-2/3 college graduates across India.",
+                        "image": None,
+                    },
+                ]),
+                leadership_badge="LEADERSHIP",
+                leadership_heading="Leadership Messages",
+                leadership_description="Words from our esteemed leaders who guide our mission",
+                leadership_messages=json.dumps([
+                    {
+                        "id": "msg-1",
+                        "name": "K Lacha Rao",
+                        "designation": "Chairperson",
+                        "role": "Chairperson",
+                        "organization": "NTR Vikasa Jobs",
+                        "image": None,
+                        "initials": "VIKASA",
+                        "headerBg": "#0f2a59",
+                        "message": "Our mission is to bridge the gap between academia and industry by providing industry-aligned curriculum to ICT faculty and students, offering the finest skill, career connect, and mentorship guidance.",
+                        "fullMessage": "Our mission is to bridge the gap between academia and industry by providing industry-aligned curriculum to ICT faculty and students, offering the finest skill, career connect, and mentorship guidance. Through deep collaboration with industry leaders and government stakeholders, we are dedicated to providing transformational employment avenues for all aspiring youth across the state.",
+                        "hasViewAction": False,
+                    },
+                    {
+                        "id": "msg-2",
+                        "name": "K. Lacha Rao",
+                        "designation": "Project Director",
+                        "role": "Project Director",
+                        "organization": "Vikasa Jobs",
+                        "image": None,
+                        "initials": "KLR",
+                        "headerBg": "#047857",
+                        "message": "At NTR Vikasa, our mission is to empower youth by creating meaningful employment opportunities and building a skilled workforce for the future. We believe that every individual deserves the right guidance, training, and platform to achieve their career aspirations. Through our initiatives such as Job Melas, skill development programs, and industry partnerships,...",
+                        "fullMessage": "At NTR Vikasa, our mission is to empower youth by creating meaningful employment opportunities and building a skilled workforce for the future. We believe that every individual deserves the right guidance, training, and platform to achieve their career aspirations. Through our initiatives such as Job Melas, skill development programs, and industry partnerships, we strive to build sustainable bridges between talent and industry requirements across the state.",
+                        "hasViewAction": True,
+                    },
+                ]),
+                partners_heading="OUR INDUSTRY & ACADEMIC TRAINING PARTNERS",
+                partners_description="Empowering future-ready talent in collaboration with leading corporate and educational organizations.",
+                partners_list=json.dumps([
+                    {"id": "p-1", "name": "Hyundai MOBIS", "logoText": "HYUNDAI MOBIS", "active": True, "order": 1},
+                    {"id": "p-2", "name": "ISUZU", "logoText": "ISUZU", "active": True, "order": 2},
+                    {"id": "p-3", "name": "MedPlus+", "logoText": "MedPlus+", "active": True, "order": 3},
+                    {"id": "p-4", "name": "Apollo Pharmacy", "logoText": "Apollo Pharmacy", "active": True, "order": 4},
+                    {"id": "p-5", "name": "IndiGo", "logoText": "IndiGo", "active": True, "order": 5},
+                    {"id": "p-6", "name": "INZI Controls", "logoText": "INZI CONTROLS", "active": True, "order": 6},
+                    {"id": "p-7", "name": "Dixon", "logoText": "Dixon", "active": True, "order": 7},
+                    {"id": "p-8", "name": "COGENT", "logoText": "COGENT", "active": True, "order": 8},
+                    {"id": "p-9", "name": "Indus", "logoText": "Indus", "active": True, "order": 9},
+                    {"id": "p-10", "name": "NIIT", "logoText": "NIIT", "active": True, "order": 10},
+                    {"id": "p-11", "name": "iSON", "logoText": "iSON", "active": True, "order": 11},
+                    {"id": "p-12", "name": "Deccan", "logoText": "deccan", "active": True, "order": 12},
+                    {"id": "p-13", "name": "ICICI Bank", "logoText": "ICICI Bank", "active": True, "order": 13},
+                ]),
+                stats_data=json.dumps([
+                    {"id": "ab-stat-1", "label": "Registered Job Seekers", "value": "2,80,000+", "color": "var(--color-primary-600)"},
+                    {"id": "ab-stat-2", "label": "Confirmed Placements", "value": "1,95,000+", "color": "var(--color-success-600)"},
+                    {"id": "ab-stat-3", "label": "Verified Hiring Employers", "value": "14,200+", "color": "var(--color-warning-600)"},
+                    {"id": "ab-stat-4", "label": "State-Wide Job Melas Held", "value": "24+", "color": "var(--color-info-600)"},
+                ]),
+                updated_by="System Seed",
+            ))
+
+        # Seed Job Mela Page Setting
+        jm_stmt = select(JobMelaPageSetting).where(JobMelaPageSetting.id == "default")
+        jm_res = await session.execute(jm_stmt)
+        if not jm_res.scalar_one_or_none():
+            session.add(JobMelaPageSetting(
+                id="default",
+                hero_badge="Nationwide Recruitment Drives",
+                hero_heading="Mega Job Melas & Career Fairs",
+                hero_description=(
+                    "Attend on-ground walk-in interview sessions with 100+ hiring companies, "
+                    "receive free career guidance, and get spot job offer letters. Free registration for all job seekers."
+                ),
+                updated_by="System Seed",
+            ))
+
+        # Seed Skill Development CMS Sections
+        skill_defaults = {
+            "skills_hero": {
+                "title": "Hero Section — Top Banner",
+                "content": {
+                    "badge": "NTR VIKASA • Skill Development & Employment Generation",
+                    "heading": "Skill Development & Training Programs",
+                    "description": "Empowering job seekers with government-recognized, industry-aligned training, practical learning, and placement support.",
+                    "exploreBtnText": "Explore Programs",
+                    "viewCoursesBtnText": "View Courses",
+                },
+            },
+            "skills_highlights": {
+                "title": "Highlights — Trust Metrics",
+                "content": [
+                    {"id": "hl-1", "icon": "Award", "title": "Government Recognized", "subtitle": "NSDC / NSQF Certified"},
+                    {"id": "hl-2", "icon": "TrendingUp", "title": "Placement Support", "subtitle": "Job Mela / Employment Support"},
+                    {"id": "hl-3", "icon": "BookOpen", "title": "Practical Curriculum", "subtitle": "Hands-on Industry Labs"},
+                    {"id": "hl-4", "icon": "Users", "title": "Expert Mentors", "subtitle": "Experienced Professionals"},
+                ],
+            },
+            "skills_mission": {
+                "title": "Institutional Mission — Mission & Pillars",
+                "content": {
+                    "badge": "Institutional Mission",
+                    "heading": "Empowering Skills. Enabling Careers.",
+                    "description": "The NTR VIKASA Skill Development initiative bridges the critical divide between academic qualifications and industry hiring standards. By partnering with state government bodies, national sector skill councils, and corporate employers, we deliver employment-focused, hands-on training to youth across Andhra Pradesh.",
+                    "cards": [
+                        {
+                            "id": "es-1",
+                            "icon": "Code2",
+                            "title": "Industry-Relevant Learning",
+                            "desc": "Curricula designed directly in consultation with tech leaders, BFSI corporations, and manufacturing employers to teach in-demand workplace tools."
+                        },
+                        {
+                            "id": "es-2",
+                            "icon": "Laptop",
+                            "title": "Practical Training Labs",
+                            "desc": "Over 70% of course time is dedicated to hands-on lab practicals, simulated industrial environments, and live capstone projects."
+                        },
+                        {
+                            "id": "es-3",
+                            "icon": "TrendingUp",
+                            "title": "Placement Assistance",
+                            "desc": "Trained candidates receive dedicated interview preparation, resume enhancement, and direct fast-track access to regional Mega Job Melas."
+                        }
+                    ],
+                },
+            },
+            "skills_pathway": {
+                "title": "Candidate Pathway — Training Journey",
+                "content": {
+                    "badge": "Candidate Pathway",
+                    "heading": "From Training to Employment",
+                    "description": "A structured 6-step journey designed to take you from foundational training to confirmed corporate placement.",
+                    "steps": [
+                        {"step": "01", "title": "Choose a Program", "desc": "Browse through high-demand domains like Tech, AI, Cloud, and BFSI to select the right skill track aligned with your career goals."},
+                        {"step": "02", "title": "Register & Counseling", "desc": "Submit a free online enrollment request. Our skill counselors guide you through batch schedules, prerequisite review, and center allocation."},
+                        {"step": "03", "title": "Hands-on Training", "desc": "Undergo practical, lab-based learning with experienced industry mentors, real-world capstone assignments, and modern equipment."},
+                        {"step": "04", "title": "Get Certified", "desc": "Earn government-recognized NSDC, NSQF, and Sector Skill Council certifications validating your industry-ready competencies."},
+                        {"step": "05", "title": "Placement Preparation", "desc": "Participate in resume enhancement sessions, technical interview simulations, soft skills coaching, and mock tests."},
+                        {"step": "06", "title": "Employment & Job Melas", "desc": "Receive direct interview access to 14,000+ verified corporate recruiters and fast-track entry to statewide Mega Job Melas."},
+                    ],
+                },
+            },
+            "skills_advantages": {
+                "title": "Why Choose NTR VIKASA — Institutional Excellence",
+                "content": {
+                    "badge": "Institutional Excellence",
+                    "heading": "Why Choose NTR VIKASA",
+                    "description": "Outcome-focused advantages designed to give candidates a real competitive edge in modern job markets.",
+                    "cards": [
+                        {"icon": "Award", "title": "Govt. & NSDC Recognized", "desc": "All programs follow National Skill Qualification Framework (NSQF) standards ensuring nationwide employer recognition."},
+                        {"icon": "Laptop", "title": "70% Practical Lab Training", "desc": "Emphasis on experiential lab exercises, software simulations, and hardware setups rather than rote memorization."},
+                        {"icon": "Users", "title": "Certified Expert Mentors", "desc": "Learn directly from seasoned industry practitioners and certified instructors with extensive domain track records."},
+                        {"icon": "TrendingUp", "title": "100% Placement Support", "desc": "Direct pipeline to NTR VIKASA verified recruiters, corporate interview drives, and district-wide Mega Job Melas."},
+                        {"icon": "ShieldCheck", "title": "100% Free / Subsidized", "desc": "State-sponsored skill development initiatives designed to empower aspiring job seekers across all districts of Andhra Pradesh."},
+                        {"icon": "Sparkles", "title": "Future-Ready Curriculum", "desc": "Regularly updated course modules integrating modern AI tools, cloud platforms, and modern industrial requirements."},
+                    ],
+                },
+            },
+            "skills_programs": {
+                "title": "Programs We Offer — Programs & Sectors",
+                "content": {
+                    "badge": "Sector Domains",
+                    "heading": "Programs We Offer",
+                    "description": "Specialized training pathways spanning modern tech, finance, core engineering, and administrative sectors.",
+                    "categories": [
+                        {"id": "it", "name": "Information Technology", "icon": "Code2", "desc": "Web development, cloud computing, and computer fundamentals", "count": "3 Courses"},
+                        {"id": "data-ai", "name": "Data & AI", "icon": "Database", "desc": "Data analytics, Power BI dashboards, and business intelligence", "count": "2 Courses"},
+                        {"id": "ai-tools", "name": "AI & Productivity Tools", "icon": "Sparkles", "desc": "ChatGPT prompt engineering, Gemini AI & office automation", "count": "2 Courses"},
+                        {"id": "banking", "name": "Banking & Finance", "icon": "Landmark", "desc": "BFSI operations, retail banking, credit appraisal & compliance", "count": "2 Courses"},
+                        {"id": "accounting", "name": "Office & Accounting", "icon": "Calculator", "desc": "Tally Prime, GST return filing, MS Office & Advanced Excel", "count": "2 Courses"},
+                        {"id": "core-eng", "name": "Core Engineering", "icon": "Cpu", "desc": "PLC automation, SCADA systems, and industrial electrical wiring", "count": "2 Courses"},
+                        {"id": "healthcare", "name": "Healthcare", "icon": "Activity", "desc": "Hospital administration, patient care, EMR systems & billing", "count": "2 Courses"},
+                        {"id": "marketing", "name": "Marketing & Sales", "icon": "Megaphone", "desc": "Digital marketing, SEO, social media ads & customer support", "count": "2 Courses"},
+                    ],
+                },
+            },
+        }
+
+        for sec_key, sec_data in skill_defaults.items():
+            s_stmt = select(SkillCmsSection).where(SkillCmsSection.section_key == sec_key)
+            s_res = await session.execute(s_stmt)
+            if not s_res.scalar_one_or_none():
+                session.add(SkillCmsSection(
+                    section_key=sec_key,
+                    title=sec_data["title"],
+                    content=json.dumps(sec_data["content"]),
+                    updated_by="System Seed",
+                ))
+
         await session.commit()
+
 
 
 async def init_db() -> None:
