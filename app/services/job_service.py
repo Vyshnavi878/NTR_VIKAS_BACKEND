@@ -303,7 +303,7 @@ class JobService:
             )
 
         # Check ownership
-        if current_user.role != "ADMIN":
+        if current_user.role.upper() not in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
             profile = await JobRepository.get_recruiter_profile_by_user_id(db, current_user.id)
             if not profile or (job.recruiter_id != profile.id and job.company_id != profile.id):
                 raise HTTPException(
@@ -400,7 +400,7 @@ class JobService:
                 detail="Job not found.",
             )
 
-        if current_user.role != "ADMIN":
+        if current_user.role.upper() not in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
             profile = await JobRepository.get_recruiter_profile_by_user_id(db, current_user.id)
             if not profile or (job.recruiter_id != profile.id and job.company_id != profile.id):
                 raise HTTPException(
@@ -414,7 +414,7 @@ class JobService:
         # If recruiter submits a draft for approval
         if data.status == "PENDING":
             job.status = "PENDING"
-        elif job.status == "PUBLISHED" and current_user.role != "ADMIN":
+        elif job.status == "PUBLISHED" and current_user.role.upper() not in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
             # Material changes trigger re-approval
             job.status = "PENDING"
 
@@ -823,7 +823,7 @@ class JobService:
         if job.status != "PUBLISHED":
             is_authorized = False
             if current_user:
-                if current_user.role == "ADMIN":
+                if current_user.role.upper() in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
                     is_authorized = True
                 elif current_user.role == "RECRUITER":
                     profile = await JobRepository.get_recruiter_profile_by_user_id(db, current_user.id)
@@ -979,7 +979,7 @@ class JobService:
                 detail="Job not found.",
             )
 
-        if current_user.role != "ADMIN":
+        if current_user.role.upper() not in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
             profile = await JobRepository.get_recruiter_profile_by_user_id(db, current_user.id)
             if not profile or (job.recruiter_id != profile.id and job.company_id != profile.id):
                 raise HTTPException(

@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "NTR Vikasa"
     SMTP_TLS: bool = True
 
+    # Initial Admin Seeding Configuration
+    INITIAL_ADMIN_EMAIL: Union[str, None] = None
+    INITIAL_ADMIN_PASSWORD: Union[str, None] = None
+    INITIAL_ADMIN_NAME: Union[str, None] = "Admin State Lead"
+    INITIAL_ADMIN_ROLE: Union[str, None] = "SUPER_ADMIN"
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def sanitize_database_url(cls, v: str) -> str:

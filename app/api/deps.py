@@ -107,8 +107,8 @@ async def get_current_recruiter(
 async def get_current_admin(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
-    """Ensure the authenticated user is an active ADMIN."""
-    if current_user.role.upper() != "ADMIN":
+    """Ensure the authenticated user is an active ADMIN (including SUPER_ADMIN)."""
+    if current_user.role.upper() not in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied. Administrator privileges required.",

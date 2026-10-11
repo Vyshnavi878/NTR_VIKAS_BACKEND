@@ -65,7 +65,7 @@ class PlatformSettingsService:
         5. Logs audit event PLATFORM_SETTINGS_UPDATED.
         6. Returns updated settings.
         """
-        if current_admin.role.upper() != "ADMIN":
+        if current_admin.role.upper() not in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to update platform settings.",

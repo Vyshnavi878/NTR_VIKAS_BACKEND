@@ -10,11 +10,25 @@ async def _login_admin(client: AsyncClient, email: str = "admin1@ntrvikasa.com",
     return resp.json()["access_token"]
 
 
-async def _login_user(client: AsyncClient, email: str, password: str = "password123") -> str:
-    """Helper to authenticate user and return JWT access token."""
-    resp = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
-    assert resp.status_code == 200
-    return resp.json()["access_token"]
+async def _get_role_token(role: str = "CANDIDATE") -> str:
+    """Helper to create a dynamic user with specified role and return valid access token."""
+    from app.core.security import create_access_token
+    from app.models.user import User
+    from app.database.session import AsyncSessionLocal
+    import uuid
+    async with AsyncSessionLocal() as session:
+        u = User(
+            id=str(uuid.uuid4()),
+            email=f"test_{role.lower()}_{uuid.uuid4().hex[:6]}@example.com",
+            phone=f"98{uuid.uuid4().int % 100000000:08d}",
+            hashed_password="mock",
+            role=role,
+            is_active=True,
+            is_verified=True,
+        )
+        session.add(u)
+        await session.commit()
+        return create_access_token(subject=u.id, role=role)
 
 
 @pytest.mark.asyncio
@@ -30,7 +44,7 @@ async def test_admin_audit_logs_authorization():
         assert res_export_unauth.status_code == 401
 
         # 2. Candidate token -> 403
-        cand_token = await _login_user(client, "candidate1@ntrvikasa.com")
+        cand_token = await _get_role_token("CANDIDATE")
         res_cand = await client.get(
             "/api/v1/admin/audit-logs",
             headers={"Authorization": f"Bearer {cand_token}"},
@@ -38,7 +52,7 @@ async def test_admin_audit_logs_authorization():
         assert res_cand.status_code == 403
 
         # 3. Recruiter token -> 403
-        rec_token = await _login_user(client, "recruiter1@ntrvikasa.com")
+        rec_token = await _get_role_token("RECRUITER")
         res_rec = await client.get(
             "/api/v1/admin/audit-logs",
             headers={"Authorization": f"Bearer {rec_token}"},

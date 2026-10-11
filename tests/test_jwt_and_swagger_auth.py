@@ -20,12 +20,45 @@ from httpx import AsyncClient, ASGITransport
 
 from app.main import app
 from app.core.config import settings
-from app.core.security import decode_token
+from app.core.security import decode_token, hash_password
+from app.models.user import User
+from app.models.candidate import CandidateProfile
+from app.database.session import AsyncSessionLocal
+from sqlalchemy import select
+import uuid
+
+
+async def _ensure_candidate():
+    async with AsyncSessionLocal() as session:
+        u = (await session.execute(select(User).where(User.email == "candidate1@ntrvikasa.com"))).scalar_one_or_none()
+        if not u:
+            uid = str(uuid.uuid4())
+            u = User(
+                id=uid,
+                email="candidate1@ntrvikasa.com",
+                phone="9876543299",
+                hashed_password=hash_password("password123"),
+                role="CANDIDATE",
+                is_active=True,
+                is_verified=True,
+            )
+            session.add(u)
+            prof = CandidateProfile(
+                id=str(uuid.uuid4()),
+                user_id=uid,
+                name="Candidate One",
+                phone="9876543299",
+                aadhaar_number="998877665544",
+                location="Vijayawada",
+            )
+            session.add(prof)
+            await session.commit()
 
 
 @pytest.mark.asyncio
 async def test_oauth2_token_endpoint_success():
     """OAuth2 form-encoded token endpoint at POST /api/v1/auth/token returns Bearer token."""
+    await _ensure_candidate()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(
@@ -153,6 +186,7 @@ async def test_protected_candidate_endpoints_reject_expired_token():
 @pytest.mark.asyncio
 async def test_candidate_bearer_token_access_success():
     """Valid Bearer token grants access (200 OK) to protected Candidate APIs."""
+    await _ensure_candidate()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Login via OAuth2 /auth/token endpoint
@@ -207,6 +241,7 @@ async def test_role_enforcement_admin_and_recruiter_rejected_on_candidate_api():
 @pytest.mark.asyncio
 async def test_jwt_payload_structure_and_hygiene():
     """JWT payload contains sub, email, role, type, exp and strictly NO sensitive fields."""
+    await _ensure_candidate()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(

@@ -37,47 +37,16 @@ from app.models.website_content import (
 from app.core.security import hash_password
 
 
-DEMO_USERS = [
-    {
-        "email": "candidate1@ntrvikasa.com",
-        "name": "Priya Sharma",
-        "phone": "9876543210",
-        "role": "CANDIDATE",
-        "password": "password123",
-        "aadhaar_number": "999900001111",
-        "district": "NTR District",
-        "mandal": "Vijayawada Urban",
-    },
-    {
-        "email": "candidate2@ntrvikasa.com",
-        "name": "Rahul Varma",
-        "phone": "9876543211",
-        "role": "CANDIDATE",
-        "password": "password123",
-        "aadhaar_number": "999900001112",
-        "district": "NTR District",
-        "mandal": "Vijayawada Urban",
-    },
-    {
-        "email": "recruiter1@ntrvikasa.com",
-        "name": "Arjun",
-        "phone": "9876543220",
-        "role": "RECRUITER",
-        "password": "password123",
-    },
-    {
-        "email": "recruiter2@ntrvikasa.com",
-        "name": "Sneha",
-        "phone": "9876543221",
-        "role": "RECRUITER",
-        "password": "password123",
-    },
+DEFAULT_ADMIN_USERS = [
     {
         "email": "admin1@ntrvikasa.com",
         "name": "Admin User",
         "phone": "9876543230",
         "role": "ADMIN",
         "password": "password123",
+        "designation": "State Operations Lead",
+        "contact_phone": "+91 98765 43210",
+        "department": "State Employment & Skill Development Authority",
     },
     {
         "email": "admin2@ntrvikasa.com",
@@ -85,6 +54,9 @@ DEMO_USERS = [
         "phone": "9876543231",
         "role": "ADMIN",
         "password": "password123",
+        "designation": "Directorate of Employment",
+        "contact_phone": "+91 98765 43211",
+        "department": "State Employment & Skill Development Authority",
     },
 ]
 
@@ -105,9 +77,9 @@ async def check_db_connection() -> bool:
 
 
 async def seed_demo_users() -> None:
-    """Seed default demo accounts into MySQL if they do not exist."""
+    """Ensure baseline platform administrative accounts exist in MySQL."""
     async with AsyncSessionLocal() as session:
-        for u in DEMO_USERS:
+        for u in DEFAULT_ADMIN_USERS:
             stmt = select(User).where(User.email == u["email"])
             res = await session.execute(stmt)
             existing = res.scalar_one_or_none()
@@ -124,35 +96,19 @@ async def seed_demo_users() -> None:
                 )
                 session.add(user)
 
-                if u["role"] == "CANDIDATE":
-                    profile = CandidateProfile(
-                        id=str(uuid.uuid4()),
-                        user_id=user_id,
-                        name=u["name"],
-                        phone=u["phone"],
-                        aadhaar_number=u["aadhaar_number"],
-                        district=u["district"],
-                        mandal=u["mandal"],
-                        qualification_level="UG",
-                        profile_completion=80,
-                        verified=True,
-                    )
-                    session.add(profile)
-
-            if u["role"] == "ADMIN":
-                adm_prof_stmt = select(AdminProfile).where(AdminProfile.user_id == user_id)
-                adm_prof_res = await session.execute(adm_prof_stmt)
-                if not adm_prof_res.scalar_one_or_none():
-                    adm_profile = AdminProfile(
-                        id=str(uuid.uuid4()),
-                        user_id=user_id,
-                        full_name=u["name"],
-                        designation="State Operations Lead" if "admin1" in u["email"] else "Directorate of Employment",
-                        contact_phone="+91 98765 43210" if "admin1" in u["email"] else "+91 98765 43211",
-                        department="State Employment & Skill Development Authority",
-                        profile_image_url=None,
-                    )
-                    session.add(adm_profile)
+            adm_prof_stmt = select(AdminProfile).where(AdminProfile.user_id == user_id)
+            adm_prof_res = await session.execute(adm_prof_stmt)
+            if not adm_prof_res.scalar_one_or_none():
+                adm_profile = AdminProfile(
+                    id=str(uuid.uuid4()),
+                    user_id=user_id,
+                    full_name=u["name"],
+                    designation=u["designation"],
+                    contact_phone=u["contact_phone"],
+                    department=u["department"],
+                    profile_image_url=None,
+                )
+                session.add(adm_profile)
 
         await session.commit()
 
@@ -1144,193 +1100,8 @@ async def seed_recruiter_profile_and_dashboard_data() -> None:
 
 
 async def seed_website_content() -> None:
-    """Seed baseline gallery photos, videos, and newspaper articles if not already present."""
+    """Ensure baseline section headers, jobs page settings, locations, and CMS configuration."""
     async with AsyncSessionLocal() as session:
-        # 1. Photos
-        res = await session.execute(select(func.count(GalleryPhoto.id)))
-        if (res.scalar() or 0) == 0:
-            demo_photos = [
-                {
-                    "id": "img-1",
-                    "title": "Mega Job Mela Vijayawada 2026",
-                    "category": "Job Melas",
-                    "image_url": "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop&q=80",
-                    "date": "15 Sep 2026",
-                    "description": "Over 120 recruiters and 4,500+ candidates attended the grand employment summit in Vijayawada.",
-                    "display_order": 1,
-                },
-                {
-                    "id": "img-2",
-                    "title": "Advanced Skill Training Lab",
-                    "category": "Skill Training",
-                    "image_url": "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&auto=format&fit=crop&q=80",
-                    "date": "08 Sep 2026",
-                    "description": "Enrolled students engaging in practical simulated software engineering and web development modules.",
-                    "display_order": 2,
-                },
-                {
-                    "id": "img-3",
-                    "title": "Spot Offer Letter Distribution Ceremony",
-                    "category": "Placements",
-                    "image_url": "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&auto=format&fit=crop&q=80",
-                    "date": "28 Aug 2026",
-                    "description": "Selected candidates receiving immediate appointment orders from attending enterprise hiring teams.",
-                    "display_order": 3,
-                },
-                {
-                    "id": "img-4",
-                    "title": "Corporate HR & Recruiter Summit",
-                    "category": "Conferences",
-                    "image_url": "https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&auto=format&fit=crop&q=80",
-                    "date": "18 Aug 2026",
-                    "description": "Industry leaders discussing youth employability, tech apprenticeships, and regional hiring targets.",
-                    "display_order": 4,
-                },
-                {
-                    "id": "img-5",
-                    "title": "Candidate Counselling & Guidance Booth",
-                    "category": "Job Melas",
-                    "image_url": "https://images.unsplash.com/photo-1577495508048-b635879837f1?w=800&auto=format&fit=crop&q=80",
-                    "date": "02 Aug 2026",
-                    "description": "Free resume evaluation, soft-skill mock interviews, and career counseling for rural youth.",
-                    "display_order": 5,
-                },
-                {
-                    "id": "img-6",
-                    "title": "Women in Tech Empowerment Program",
-                    "category": "Skill Training",
-                    "image_url": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&auto=format&fit=crop&q=80",
-                    "date": "20 Jul 2026",
-                    "description": "Empowering women engineers and technicians with cloud computing and AI certification courses.",
-                    "display_order": 6,
-                },
-            ]
-            for dp in demo_photos:
-                photo_obj = GalleryPhoto(
-                    id=dp["id"],
-                    title=dp["title"],
-                    category=dp["category"],
-                    image_url=dp["image_url"],
-                    date=dp["date"],
-                    description=dp["description"],
-                    display_order=dp["display_order"],
-                    is_published=True,
-                )
-                session.add(photo_obj)
-
-        # 2. Videos
-        res_v = await session.execute(select(func.count(GalleryVideo.id)))
-        if (res_v.scalar() or 0) == 0:
-            demo_videos = [
-                {
-                    "id": "vid-1",
-                    "title": "Mega Job Mela Vijayawada Highlights & Walk-in Drives",
-                    "youtube_url": "https://www.youtube.com/watch?v=kYI_t91Z6oA",
-                    "category": "Job Melas",
-                    "date": "16 Sep 2026",
-                    "description": "Watch the energetic atmosphere, recruiter interviews, and joyful candidate reactions at our mega recruitment drive.",
-                    "display_order": 1,
-                },
-                {
-                    "id": "vid-2",
-                    "title": "Candidate Success Journey & Spot Offer Letters — NTR VIKASA",
-                    "youtube_url": "https://www.youtube.com/watch?v=SqcY0GlETPk",
-                    "category": "Placements",
-                    "date": "05 Sep 2026",
-                    "description": "Hear from our alumni who transitioned from college freshers to placed professionals in top corporations.",
-                    "display_order": 2,
-                },
-                {
-                    "id": "vid-3",
-                    "title": "Skill Development Labs & Practical Industry Training Batch",
-                    "youtube_url": "https://www.youtube.com/watch?v=tgbNymZ7vqY",
-                    "category": "Skill Training",
-                    "date": "22 Aug 2026",
-                    "description": "Hands-on training, expert mentor guidance, and real-world project development at our modern center.",
-                    "display_order": 3,
-                },
-            ]
-            for dv in demo_videos:
-                video_obj = GalleryVideo(
-                    id=dv["id"],
-                    title=dv["title"],
-                    youtube_url=dv["youtube_url"],
-                    category=dv["category"],
-                    date=dv["date"],
-                    description=dv["description"],
-                    display_order=dv["display_order"],
-                    is_published=True,
-                )
-                session.add(video_obj)
-
-        # 3. Press Articles
-        res_p = await session.execute(select(func.count(PressArticle.id)))
-        if (res_p.scalar() or 0) == 0:
-            demo_press = [
-                {
-                    "id": "news-1",
-                    "newspaper": "Sakshi",
-                    "title": "జాబ్‌మేళాలో 68 మందికి ఉద్యోగాలు",
-                    "date": "08 Feb 2026",
-                    "edition": "Tiruvuru Edition | Page 9",
-                    "image_url": "/news/news-sakshi-job-mela.png",
-                    "source_url": "https://epaper.sakshi.com/",
-                    "summary": "ఆంధ్రప్రదేశ్ రాష్ట్ర నైపుణ్యాభివృద్ధి సంస్థ ఆధ్వర్యంలో జిల్లాలోని నిరుద్యోగ యువతకు గుంటుపల్లిలో నిర్వహించిన జాబ్ మేళాలో 68 మందికి ఉద్యోగాలు లభించాయి. జిల్లా కలెక్టర్ జి. లక్ష్మీశ స్వయంగా నియామక పత్రాలు అందజేశారు.",
-                    "category": "Press Coverage",
-                    "display_order": 1,
-                },
-                {
-                    "id": "news-2",
-                    "newspaper": "Eenadu",
-                    "title": "18న ప్రత్యేక ఉద్యోగ మేళా",
-                    "date": "14 Feb 2026",
-                    "edition": "Andhra Pradesh State Edition",
-                    "image_url": "/news/news-eenadu-job-mela.png",
-                    "source_url": "https://epaper.eenadu.net/",
-                    "summary": "కరెన్సీనగర్: రూరల్ ఇంక్యుబేషన్ స్కిల్లింగ్ అండ్ ఎంట్రప్రెన్యూర్ సెంటర్ (రైజ్), ఏపీఎస్ఎస్డీసీ, ఎన్టీఆర్ వికాస, జిల్లా ఉపాధి కల్పన శాఖ సంయుక్తంగా నిర్వహించనున్న ప్రత్యేక డ్రైవ్.",
-                    "category": "Press Coverage",
-                    "display_order": 2,
-                },
-                {
-                    "id": "news-3",
-                    "newspaper": "Special Press Bulletin",
-                    "title": "గుంటుపల్లిలో “రైజ్” ఆధ్వర్యంలో ఎన్టీఆర్ వికాస జాబ్ మేళా — యువత సద్వినియోగం చేసుకోవాలి",
-                    "date": "07 Feb 2026",
-                    "edition": "Ibrahimpatnam - Udayatara",
-                    "image_url": "/news/news-rise-job-mela.png",
-                    "source_url": "https://naipunyam.ap.gov.in/",
-                    "summary": "ఎన్టీఆర్ వికాస జాబ్ మేళా ద్వారా నిరుద్యోగ యువతకు 10కి పైగా ప్రముఖ కంపెనీలలో నెలకు రూ.12,000 నుండి రూ.35,000 వరకు వేతనంతో ఉద్యోగ అవకాశాలు.",
-                    "category": "Press Coverage",
-                    "display_order": 3,
-                },
-                {
-                    "id": "news-4",
-                    "newspaper": "Suryaa",
-                    "title": "ఎన్టీఆర్ వికాస జాబ్ మేళా నిర్వహణ విజయవంతం",
-                    "date": "08 Feb 2026",
-                    "edition": "Major News | Page 2",
-                    "image_url": "/news/news-surya-job-mela.png",
-                    "source_url": "https://www.suryaa.com/",
-                    "summary": "విజయవాడ: గుంటుపల్లిలో నిర్వహించిన జాబ్ మేళాలో 91 మంది హాజరు కాగా 68 మంది అభ్యర్థులకు ప్రైవేట్ కంపెనీలలో ఉద్యోగాలు లభించాయి, 14 మంది షార్ట్‌లిస్ట్ అయ్యారు. కలెక్టర్ డా. జి.లక్ష్మీశ ప్రశంసలు.",
-                    "category": "Press Coverage",
-                    "display_order": 4,
-                },
-            ]
-            for da in demo_press:
-                art_obj = PressArticle(
-                    id=da["id"],
-                    newspaper=da["newspaper"],
-                    title=da["title"],
-                    date=da["date"],
-                    edition=da["edition"],
-                    image_url=da["image_url"],
-                    source_url=da["source_url"],
-                    summary=da["summary"],
-                    category=da["category"],
-                    display_order=da["display_order"],
-                    is_published=True,
-                )
-                session.add(art_obj)
 
         # 4. Section Headers
         res_h = await session.execute(select(WebsiteSectionHeader).where(WebsiteSectionHeader.id == "gallery"))
@@ -1702,14 +1473,12 @@ async def seed_website_content() -> None:
 
 async def init_db() -> None:
     """
-    Database startup check and initial seed.
+    Database startup verification and reference data check.
+    Ensures administrator access and lookup configurations are initialized.
+    No mock business data, dummy candidates, fake recruiters, or demo media are automatically seeded.
     """
     await check_db_connection()
     await seed_demo_users()
-    await seed_candidate_saved_jobs()
-    await seed_candidate_applications()
-    await seed_candidate_notifications()
-    await seed_recruiter_profile_and_dashboard_data()
     await seed_website_content()
 
 

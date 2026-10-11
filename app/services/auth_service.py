@@ -100,7 +100,7 @@ class AuthService:
         refresh_token = create_refresh_token(subject=user.id, role=user.role)
 
         # Log audit entry for Admin Login
-        if user.role.upper() == "ADMIN":
+        if user.role.upper() in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
             audit_entry = AuditLog(
                 id=f"audit-{uuid.uuid4().hex[:10]}",
                 actor=display_name or user.email,
@@ -222,7 +222,7 @@ class AuthService:
         user.updated_at = datetime.now(timezone.utc)
 
         # 8. Record audit log for admin / security events
-        if user.role.upper() == "ADMIN":
+        if user.role.upper() in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
             audit_entry = AuditLog(
                 id=f"audit-{uuid.uuid4().hex[:10]}",
                 actor=user.email,

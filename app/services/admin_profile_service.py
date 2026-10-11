@@ -78,8 +78,10 @@ class AdminProfileService:
     ) -> AdminProfileResponse:
         """Construct response DTO avoiding exposure of sensitive credentials."""
         role_label = "Platform Administrator"
-        if user.role.upper() == "ADMIN":
+        if user.role.upper() in ["ADMIN", "PLATFORM_ADMINISTRATOR"]:
             role_label = "Platform Administrator"
+        elif user.role.upper() == "SUPER_ADMIN":
+            role_label = "Super Administrator"
         else:
             role_label = user.role
 

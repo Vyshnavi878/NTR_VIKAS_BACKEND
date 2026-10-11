@@ -220,7 +220,7 @@ class InternshipService:
             )
 
         # Enforce recruiter ownership unless admin
-        if current_user.role.upper() != "ADMIN":
+        if current_user.role.upper() not in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
             profile = await InternshipRepository.get_recruiter_profile_by_user_id(db, current_user.id)
             if not profile or internship.company_id != profile.id:
                 raise HTTPException(
@@ -583,7 +583,7 @@ class InternshipService:
                 detail="Internship not found.",
             )
 
-        if current_user.role != "ADMIN":
+        if current_user.role.upper() not in ["ADMIN", "SUPER_ADMIN", "PLATFORM_ADMINISTRATOR"]:
             profile = await InternshipRepository.get_recruiter_profile_by_user_id(db, current_user.id)
             if not profile or internship.company_id != profile.id:
                 raise HTTPException(
